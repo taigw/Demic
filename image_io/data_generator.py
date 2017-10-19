@@ -83,9 +83,9 @@ class ImageDataGenerator(object):
         if(self.label_convert_source and self.label_convert_target):
             assert(len(self.label_convert_source) == len(self.label_convert_target))
             label_converted = tf.zeros_like(label_slice)
-            for i in range(len(label_convert_source)):
-                l0 = label_convert_source[i]
-                l1 = label_convert_target[i]
+            for i in range(len(self.label_convert_source)):
+                l0 = self.label_convert_source[i]
+                l1 = self.label_convert_target[i]
                 label_temp = tf.equal(label_slice, tf.multiply(l0, tf.ones_like(label_slice)))
                 label_temp = tf.multiply(l1, label_temp)
                 label_converted = tf.add(label_converted, tf.cast(label_temp, tf.int32))
