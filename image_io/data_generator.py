@@ -87,8 +87,8 @@ class ImageDataGenerator(object):
                 l0 = self.label_convert_source[i]
                 l1 = self.label_convert_target[i]
                 label_temp = tf.equal(label_slice, tf.multiply(l0, tf.ones_like(label_slice)))
-                label_temp = tf.multiply(l1, label_temp)
-                label_converted = tf.add(label_converted, tf.cast(label_temp, tf.int32))
+                label_temp = tf.multiply(l1, tf.cast(label_temp,tf.int32))
+                label_converted = tf.add(label_converted, label_temp)
             label_slice = label_converted
                 
         return img_slice, label_slice
