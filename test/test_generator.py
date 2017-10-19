@@ -36,6 +36,7 @@ def test_generator(config_file):
     #validation_init_op = iterator.make_initializer(val_data.data)
 
     train_batches_per_epoch = 3 #int(np.floor(tr_data.data_size/batch_size))
+    num_epochs = 10
 
     # Start Tensorflow session
     with tf.Session() as sess:
