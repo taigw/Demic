@@ -25,8 +25,6 @@ def test_generator(config_file):
     # Place data loading and preprocessing on the cpu
     with tf.device('/cpu:0'):
         tr_data = ImageDataGenerator(config_data)
-        tr_data.create_dataset()
-
 
     # create an reinitializable iterator given the dataset structure
     iterator = Iterator.from_structure(tr_data.data.output_types,
