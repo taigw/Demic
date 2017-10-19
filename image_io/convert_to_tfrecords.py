@@ -47,15 +47,17 @@ class DataLoader():
         self.data_subset = config.get('data_subset', None)
         self.mask_threshold = config.get('mask_threshold', 0)
         self.with_ground_truth  = config.get('with_ground_truth', False)
+
+        # preprocess, intensity_normalize
+        self.intensity_normalize = config.get('intensity_normalize', None)
+        if(self.intensity_normalize == None):
+            self.intensity_normalize = [True] * len(self.modality_postfix)
+        
+        # preprocess, label_convert
         self.label_convert_source = self.config.get('label_convert_source', None)
         self.label_convert_target = self.config.get('label_convert_target', None)
         if(self.label_convert_source and self.label_convert_target):
             assert(len(self.label_convert_source) == len(self.label_convert_target))
-
-        # preprocess
-        self.intensity_normalize = config.get('intensity_normalize', None)
-        if(self.intensity_normalize == None):
-            self.intensity_normalize = [True] * len(self.modality_postfix)
 
     def __get_patient_names(self):
         if(not(self.data_names is None)):
