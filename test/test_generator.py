@@ -1,11 +1,9 @@
 
 import os
-import sys
-sys.path.append('/')
 import numpy as np
 import tensorflow as tf
 from util.parse_config import parse_config
-from test.tfrecord_datagenerator import ImageDataGenerator
+from image_io.data_generator import ImageDataGenerator
 from datetime import datetime
 from tensorflow.contrib.data import Iterator
 
