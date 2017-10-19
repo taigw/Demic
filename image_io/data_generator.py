@@ -23,8 +23,11 @@ class ImageDataGenerator(object):
         """
         self.config = config
         self.__check_image_patch_shape()
-        data = TFRecordDataset(self.config['tfrecords_filename'],"ZLIB")
         batch_size = self.config['batch_size']
+        self.label_convert_source = self.config.get('label_convert_source', None)
+        self.label_convert_target = self.config.get('label_convert_target', None)
+        
+        data = TFRecordDataset(self.config['tfrecords_filename'],"ZLIB")
         data = data.map(self._parse_function, num_threads=5,
                         output_buffer_size=20*batch_size)
         data = data.batch(batch_size)
@@ -71,9 +74,23 @@ class ImageDataGenerator(object):
         weight_raw = tf.reshape(weight_raw, weight_shape)
         label_raw  = tf.reshape(label_raw, label_shape)
         
-        # preprocess (slice to fixed size)
+
+        ## preprocess
+        # slice to fixed size
         [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
                 image_raw, weight_raw, label_raw)
+        # convert label
+        if(self.label_convert_source and self.label_convert_target):
+            assert(len(self.label_convert_source) == len(self.label_convert_target))
+            label_converted = tf.zero_like(label_slice)
+            for i in range(len(label_convert_source)):
+                l0 = label_convert_source[i]
+                l1 = label_convert_target[i]
+                label_temp = tf.equal(label_slice, tf.multiply(l0, tf.ones_like(label_slice)))
+                label_temp = tf.multiply(l1, label_temp)
+                label_converted = tf.add(label_converted, tf.cast(label_temp, tf.int32))
+            label_slice = label_converted
+                
         return img_slice, label_slice
             
     def __random_sample_patch(self, img, weight, label):

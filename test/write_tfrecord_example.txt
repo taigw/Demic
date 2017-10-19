@@ -25,9 +25,5 @@ with_ground_truth = True
 # a list to flag whether each modality should be normalised, based on image level 
 intensity_normalize = [True]
 
-# two lists of label convert, each label in label_convert_source is converted to the corresponding one in label_convert_target
-label_convert_source = [0, 1, 2, 3, 4]
-label_convert_target = [0, 0, 1, 0, 0]
-
 # the output filename
 tfrecords_filename = data/bf_img.tfrecords

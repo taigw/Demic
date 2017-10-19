@@ -10,5 +10,9 @@ data_shape  = [50, 144, 130, 4]
 weight_shape= [50, 144, 130, 1]
 label_shape = [50, 144, 130, 1]
 
+# two lists of label convert, each label in label_convert_source is converted to the corresponding one in label_convert_target
+label_convert_source = [0, 1, 2, 3, 4]
+label_convert_target = [0, 0, 1, 0, 0]
+
 # dir to save temporary output
 temp_dir = temp
