@@ -2,12 +2,12 @@
 import os
 import sys
 import numpy as np
+import nibabel
+from datetime import datetime
 import tensorflow as tf
+from tensorflow.contrib.data import Iterator
 from util.parse_config import parse_config
 from image_io.data_generator import ImageDataGenerator
-from datetime import datetime
-from tensorflow.contrib.data import Iterator
-
 
 def save_array_as_nifty_volume(data, filename):
     # numpy data shape [D, H, W]
