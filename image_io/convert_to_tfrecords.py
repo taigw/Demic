@@ -1,6 +1,5 @@
 import os
 import sys
-sys.path.append('./')
 import numpy as np
 import nibabel
 import tensorflow as tf
