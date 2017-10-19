@@ -82,7 +82,7 @@ class ImageDataGenerator(object):
         # convert label
         if(self.label_convert_source and self.label_convert_target):
             assert(len(self.label_convert_source) == len(self.label_convert_target))
-            label_converted = tf.zero_like(label_slice)
+            label_converted = tf.zeros_like(label_slice)
             for i in range(len(label_convert_source)):
                 l0 = label_convert_source[i]
                 l1 = label_convert_target[i]
