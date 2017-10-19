@@ -26,13 +26,13 @@ def search_file_in_folder_list(folder_list, file_name):
         raise ValueError('file not exist: {0:}'.format(file_name))
     return full_file_name
 
-def itensity_normalize_one_volume(volume):
-    pixels = volume[volume > 0]
+def itensity_normalize_one_volume(volume, threshold):
+    pixels = volume[volume > threshold]
     mean = pixels.mean()
     std  = pixels.std()
     out = (volume - mean)/std
     out_random = np.random.normal(0, 1, size = volume.shape)
-    out[volume == 0] = out_random[volume == 0]
+    out[volume <= threshold] = out_random[volume <=threshold 0]
     return out
 
 class DataLoader():
@@ -45,6 +45,7 @@ class DataLoader():
         self.file_postfix = config['file_post_fix']
         self.data_names = config.get('data_names', None)
         self.data_subset = config.get('data_subset', None)
+        self.mask_threshold = config.get('mask_threshold', 0)
         self.with_ground_truth  = config.get('with_ground_truth', False)
         self.label_convert_source = self.config.get('label_convert_source', None)
         self.label_convert_target = self.config.get('label_convert_target', None)
@@ -102,9 +103,9 @@ class DataLoader():
                 volume_name = search_file_in_folder_list(self.data_root, volume_name_short)
                 volume = load_nifty_volume_as_array(volume_name)
                 if(mod_idx == 0):
-                    weight = np.asarray(volume > 0, np.float32)
+                    weight = np.asarray(volume > self.mask_threshold, np.float32)
                 if(self.intensity_normalize[mod_idx]):
-                    volume = itensity_normalize_one_volume(volume)
+                    volume = itensity_normalize_one_volume(volume, self.mask_threshold)
                 volume_list.append(volume)
             volume_array = np.asarray(volume_list)
             volume_array = np.transpose(volume_array, [1, 2, 3, 0]) # [D, H, W, C]
