@@ -1,0 +1,14 @@
+[tfrecords]
+# filename of tfrecords
+tfrecords_filename = image_io/brats_img.tfrecords
+
+# batch size to load
+batch_size  = 2
+
+# patch shape [D, H, W, C]
+data_shape  = [50, 144, 130, 4]
+weight_shape= [50, 144, 130, 1]
+label_shape = [50, 144, 130, 1]
+
+# dir to save temporary output
+temp_dir = temp
