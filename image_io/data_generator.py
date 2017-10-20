@@ -11,6 +11,18 @@ from tensorflow.python.framework import dtypes
 from tensorflow.python.framework.ops import convert_to_tensor
 import random
 
+
+def random_flip_tensors_in_one_dim(x, d):
+    """
+    Random flip a tensor in one dimension
+    x: a list of tensors
+    d: a integer denoting the axis
+    """
+    r = tf.random_uniform([], 0, 1)
+    if(tf.less(r, tf.constant(0.5)):
+       x = [tf.reverse(xi, tf.constant(d)) for xi in x]
+    return x
+
 class ImageDataGenerator(object):
     """Wrapper class around the new Tensorflows dataset pipeline.
 
@@ -61,27 +73,36 @@ class ImageDataGenerator(object):
         image_shape  = tf.decode_raw(parsed_features['image_shape_raw'],  tf.int32)
         weight_shape = tf.decode_raw(parsed_features['weight_shape_raw'], tf.int32)
         label_shape  = tf.decode_raw(parsed_features['label_shape_raw'],  tf.int32)
-        
+
         image_shape  = tf.reshape(image_shape,  [4])
         weight_shape = tf.reshape(weight_shape, [4])
         label_shape  = tf.reshape(label_shape,  [4])
-        
+
         image_raw   = tf.decode_raw(parsed_features['image_raw'],  tf.float32)
         weight_raw  = tf.decode_raw(parsed_features['weight_raw'], tf.float32)
         label_raw   = tf.decode_raw(parsed_features['label_raw'],  tf.int32)
-        
-        image_raw  = tf.reshape(image_raw, image_shape)
-        weight_raw = tf.reshape(weight_raw, weight_shape)
-        label_raw  = tf.reshape(label_raw, label_shape)
-        
+
+        image  = tf.reshape(image_raw, image_shape)
+        weight = tf.reshape(weight_raw, weight_shape)
+        label  = tf.reshape(label_raw, label_shape)
+       
 
         ## preprocess
         # augmentation by random rotation
-        angle  = tf.random_uniform([], -3.14, 3.14)
-        image  = tf.contrib.image.rotate(image_raw, angle)
-        weight = tf.contrib.image.rotate(weight_raw, angle)
-        label  = tf.contrib.image.rotate(label_raw, angle)
-        
+        random_rotate = self.config.get('random_rotate', None)
+        if(not(random_rotate is None)):
+            assert(len(random_rotate) == 2)
+            assert(random_rotate[0] < random_rotate[1]
+            angle  = tf.random_uniform([], random_rotate[0], random_rotate[1])
+            image  = tf.contrib.image.rotate(image_raw, angle)
+            weight = tf.contrib.image.rotate(weight_raw, angle)
+            label  = tf.contrib.image.rotate(label_raw, angle)
+        # augmentation by random flip
+        if(self.config.get('flip_left_right', False)):
+            [image, weight, label] = random_flip_tensors_in_one_dim([image, weight, label], 2)
+        if(self.config.get('flip_up_down', False)):
+            [image, weight, label] = random_flip_tensors_in_one_dim([image, weight, label], 1)
+       
         # slice to fixed size
         [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
                 image, weight, label)
