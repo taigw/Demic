@@ -76,9 +76,16 @@ class ImageDataGenerator(object):
         
 
         ## preprocess
+        # augmentation by random rotation
+        angle  = tf.random_uniform([], -3.14, 3.14)
+        image  = tf.contrib.image.rotate(image_raw, angle)
+        weight = tf.contrib.image.rotate(weight_raw, angle)
+        label  = tf.contrib.image.rotate(label_raw, angle)
+        
         # slice to fixed size
         [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
-                image_raw, weight_raw, label_raw)
+                image, weight, label)
+                
         # convert label
         if(self.label_convert_source and self.label_convert_target):
             assert(len(self.label_convert_source) == len(self.label_convert_target))
