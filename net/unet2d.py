@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function
-
+import tensorflow as tf
 from niftynet.layer import layer_util
 from niftynet.layer.base_layer import TrainableLayer
 from niftynet.layer.convolution import ConvolutionalLayer
@@ -25,7 +25,7 @@ class UNet2D(TrainableLayer):
                  b_regularizer=None,
                  acti_func='prelu',
                  name='UNet'):
-        super(UNet3D, self).__init__(name=name)
+        super(UNet2D, self).__init__(name=name)
         
         self.n_features = [64, 128, 256, 512, 1024]
         self.acti_func = acti_func
@@ -38,11 +38,11 @@ class UNet2D(TrainableLayer):
     
     def layer_op(self, images, is_training, layer_id=-1):
         # image_size  should be divisible by 8
-        spatial_dims = input_tensor.get_shape()[1:-1].as_list()
-        assert (spatial_dims[-3] % 8 == 0 )
+        spatial_dims = images.get_shape()[1:-1].as_list()
         assert (spatial_dims[-2] % 8 == 0 )
-        assert (spatial_dims[-3] >= 89)
-        assert (spatial_dims[-2] >= 89 )
+        assert (spatial_dims[-1] % 8 == 0 )
+        assert (spatial_dims[-2] >= 89)
+        assert (spatial_dims[-1] >= 89 )
         
         block_layer = UNetBlock('DOWNSAMPLE',
                                 (self.n_features[0], self.n_features[1]),
@@ -121,7 +121,9 @@ class UNet2D(TrainableLayer):
         # for the last layer, upsampling path is not used
         _, output_tensor = block_layer(concat_1, is_training)
 
-        crop_layer = CropLayer(border=44, name='crop-88')
+
+#        crop_layer = CropLayer(border=44, name='crop-88')
+        crop_layer = TensorSliceLayer(margin = (1, 44, 44))
         output_tensor = crop_layer(output_tensor)
         print(block_layer)
         return output_tensor
@@ -184,3 +186,27 @@ class UNetBlock(TrainableLayer):
         elif self.func == 'NONE':
             pass  # do nothing
         return output_tensor, branch_output
+
+class TensorSliceLayer(TrainableLayer):
+    """
+        extract the central part of a tensor
+        """
+    
+    def __init__(self, margin=1, regularizer=None, name='tensor_extract'):
+        self.layer_name = name
+        super(TensorSliceLayer, self).__init__(name=self.layer_name)
+        if(isinstance(margin, int)):
+            self.margin = [margin] * 3
+        else:
+            self.margin = list(margin)
+    
+    def layer_op(self, input_tensor):
+        input_shape = input_tensor.get_shape().as_list()
+        begin = [0] * len(input_shape)
+        begin[1:4] = self.margin
+        size = input_shape
+        space_shape = size[1:4]
+        size[1:4] =  [space_shape[i]- 2 * self.margin[i] for i in range(3)]
+        output_tensor = tf.slice(input_tensor, begin, size, name='slice')
+        return output_tensor
+

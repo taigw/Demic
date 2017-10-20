@@ -3,8 +3,12 @@ Author: Guotai Wang
 """
 import os
 import sys
+import random
 import numpy as np
 import tensorflow as tf
+from datetime import datetime
+from tensorflow.contrib.layers.python.layers import regularizers
+from niftynet.layer.loss_segmentation import LossFunction
 from util.parse_config import parse_config
 from image_io.data_generator import ImageDataGenerator
 from net.net_factory import NetFactory
@@ -13,20 +17,21 @@ from tensorflow.contrib.data import Iterator
 def model_train(config_file):
     config = parse_config(config_file)
     config = parse_config(config_file)
-    config_data  = config['data']
-    config_net   = config['network']
-    config_train = config['training']
+    config_tfrecords = config['tfrecords']
+    config_net       = config['network']
+    config_train     = config['training']
 
     random.seed(config_train.get('random_seed', 1))
-    assert(config_data['with_ground_truth'])
+    assert(config_tfrecords['with_ground_truth'])
 
     net_type    = config_net['net_type']
     net_name    = config_net['net_name']
-    full_data_shape  = config_net['data_shape']
-    full_label_shape = config_net['label_shape']
-    data_channel= data_shape[-1]
-    class_num   = label_shape[-1]
-    batch_size  = config_data.get('tfrecords', 5)
+    batch_size  = config_tfrecords.get('batch_size', 5)
+    full_data_shape  = [batch_size] + config_net['data_shape']
+    full_label_shape = [batch_size] + config_net['label_shape']
+    data_channel= full_data_shape[-1]
+    class_num   = full_label_shape[-1]
+    
     full_weight_shape = [i for i in full_data_shape]
     full_weight_shape[-1] = 1
     data_space_shape  = full_data_shape[:-1]
@@ -69,8 +74,8 @@ def model_train(config_file):
     sess.run(tf.global_variables_initializer())
     saver = tf.train.Saver()
 
-    num_epochs  = config_train('epoch')
-    train_batches_per_epoch = config_train('batch_number')
+    num_epochs  = config_train['epoch']
+    train_batches_per_epoch = config_train['batch_number']
     for epoch in range(num_epochs):
         print("{} Epoch number: {}".format(datetime.now(), epoch+1))
 
@@ -84,7 +89,7 @@ def model_train(config_file):
             opt_step.run(session = sess, feed_dict={x:img_batch, w: weight_batch, y:label_batch})
 
 if __name__ == '__main__':
-    if(len(sys.argv) != 3):
+    if(len(sys.argv) != 2):
         print('Number of arguments should be 2. e.g.')
         print('    python model_train.py config.txt')
         exit()
