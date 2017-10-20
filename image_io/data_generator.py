@@ -19,7 +19,7 @@ def random_flip_tensors_in_one_dim(x, d):
     d: a integer denoting the axis
     """
     r = tf.random_uniform([], 0, 1)
-    if(tf.less(r, tf.constant(0.5)):
+    if(tf.less(r, tf.constant(0.5))):
        x = [tf.reverse(xi, tf.constant(d)) for xi in x]
     return x
 
