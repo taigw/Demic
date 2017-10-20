@@ -23,8 +23,12 @@ def random_flip_tensors_in_one_dim(x, d):
     r = tf.cast(r, tf.int32)
     y = []
     for xi in x:
-        xi_xiflip = [xi, tf.reverse(xi, tf.constant([d]))]
-        y.append(xi_xiflip[r])
+        xi_xiflip = tf.stack([xi, tf.reverse(xi, tf.constant([d]))])
+        slice_begin = tf.concate([r, tf.shape(xi)])
+        slice_size  = tf.concate([tf.constant(1), tf.shape(xi)])
+        flip = tf.slice(xi_xiflip, slice_begin, slice_size)
+        flip = tf.reshape(flip, tf.shape(xi))
+        y.append(flip)
     return y
 
 class ImageDataGenerator(object):
