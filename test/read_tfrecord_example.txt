@@ -18,7 +18,7 @@ random_rotate =
 flip_left_right =
 
 # a bool denoting up down flip or not, i.e, True or False
-flip_up_down
+flip_up_down = 
 
 # two lists of label convert, each label in label_convert_source is converted to the corresponding one in label_convert_target
 label_convert_source = [0, 1, 2, 3, 4]
