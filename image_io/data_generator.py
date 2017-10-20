@@ -97,12 +97,13 @@ class ImageDataGenerator(object):
         """ Pad a tensor to desired shape
         """
         inpt_shape = tf.shape(inpt_tensor)
-        shape_sub = tf.subtract(shape_sub, outpt_shape)
-        pad = tf.add(shape_sub, tf.ones_like(shape_sub))
-        pad = tf.scalar_mul(tf.constant(0.5), pad)
-        flag = tf.cast(tf.tf.less(pad, tf.zeros_like(pad)), tf.int32)
+        shape_sub = tf.subtract(inpt_shape, outpt_shape)
+        flag = tf.cast(tf.less(shape_sub, tf.zeros_like(shape_sub)), tf.int32)
         flag = tf.scalar_mul(tf.constant(-1), flag)
         pad = tf.multiply(pad, flag)
+        pad = tf.add(pad, tf.ones_like(pad))
+        pad = tf.scalar_mul(tf.constant(0.5), pad)
+        pad = tf.cast(pad, tf.int32)
         pad_lr = tf.concat([pad, pad])
         outpt_tensor = tf.pad(inpt_tensor, pad_lr)
         return outpt_tensor
