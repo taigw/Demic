@@ -129,8 +129,9 @@ class ImageDataGenerator(object):
         label_margin    = tf.constant(self.label_margin)
         data_shape_sub = tf.subtract(data_shape_in, data_shape_out)
         
-        r = tf.random_uniform([], 0, 1.0)
-        img_begin = tf.cast(tf.cast(data_shape_sub, tf.float32) * r, tf.int32)
+        r = tf.random_uniform(tf.shape(data_shape_sub), 0, 1.0)
+        img_begin = tf.multiply(tf.cast(data_shape_sub, tf.float32), r)
+        img_begin = tf.cast(img_begin, tf.int32)
         img_begin = tf.multiply(img_begin, tf.constant([1, 1, 1, 0]))
         
         lab_begin = img_begin + label_margin
