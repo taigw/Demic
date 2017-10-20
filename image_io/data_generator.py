@@ -23,7 +23,7 @@ def random_flip_tensors_in_one_dim(x, d):
     r = tf.cast(r, tf.int32)
     y = []
     for xi in x:
-        xi_xiflip = [xi, tf.reverse(xi, tf.constant(d))]
+        xi_xiflip = [xi, tf.reverse(xi, tf.constant([d]))]
         y.append(xi_xiflip[r])
     return y
 
