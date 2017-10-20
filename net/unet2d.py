@@ -123,8 +123,8 @@ class UNet2D(TrainableLayer):
 
 
 #        crop_layer = CropLayer(border=44, name='crop-88')
-        crop_layer = TensorSliceLayer(margin = (1, 44, 44))
-        output_tensor = crop_layer(output_tensor)
+#        crop_layer = TensorSliceLayer(margin = (1, 44, 44))
+#        output_tensor = crop_layer(output_tensor)
         print(block_layer)
         return output_tensor
 

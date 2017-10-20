@@ -30,7 +30,7 @@ def model_train(config_file):
     full_data_shape  = [batch_size] + config_net['data_shape']
     full_label_shape = [batch_size] + config_net['label_shape']
     data_channel= full_data_shape[-1]
-    class_num   = full_label_shape[-1]
+    class_num   = config_net['class_num']
     
     full_weight_shape = [i for i in full_data_shape]
     full_weight_shape[-1] = 1
@@ -50,7 +50,7 @@ def model_train(config_file):
                     b_regularizer = b_regularizer,
                     name = net_name)
     predicty = net(x, is_training = True)
-
+    print(predicty)
     # define loss function and optimization method
     loss_func = LossFunction(n_class=class_num)
     loss = loss_func(predicty, y, weight_map = w)
@@ -83,7 +83,7 @@ def model_train(config_file):
         sess.run(training_init_op)
 
         for step in range(train_batches_per_epoch):
-
+            print('epoch {0:}, step {1:}'.format(epoch, step))
             # get next batch of data
             [img_batch, weight_batch, label_batch] = sess.run(next_batch)
             opt_step.run(session = sess, feed_dict={x:img_batch, w: weight_batch, y:label_batch})
