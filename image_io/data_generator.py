@@ -92,7 +92,7 @@ class ImageDataGenerator(object):
         random_rotate = self.config.get('random_rotate', None)
         if(not(random_rotate is None)):
             assert(len(random_rotate) == 2)
-            assert(random_rotate[0] < random_rotate[1]
+            assert(random_rotate[0] < random_rotate[1])
             angle  = tf.random_uniform([], random_rotate[0], random_rotate[1])
             image  = tf.contrib.image.rotate(image_raw, angle)
             weight = tf.contrib.image.rotate(weight_raw, angle)
