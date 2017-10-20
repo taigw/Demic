@@ -5,14 +5,7 @@ import nibabel
 import tensorflow as tf
 
 from util.parse_config import parse_config
-
-def load_nifty_volume_as_array(filename):
-    # input shape [W, H, D]
-    # output shape [D, H, W]
-    img = nibabel.load(filename)
-    data = img.get_data()
-    data = np.transpose(data, [2,1,0])
-    return data
+from image_io.file_read_write import load_nifty_volume_as_array
 
 def search_file_in_folder_list(folder_list, file_name):
     file_exist = False
