@@ -1,0 +1,53 @@
+[system]
+# seed of random number, an integer
+random_seed = 
+
+[tfrecords]
+# filename of tfrecords
+tfrecords_filename = image_io/brats_img.tfrecords
+
+# batch size to load
+batch_size  = 2
+
+# patch shape [D, H, W, C]
+data_shape  = [50, 144, 130, 4]
+weight_shape= [50, 144, 130, 1]
+label_shape = [50, 144, 130, 1]
+
+# data augmentation
+# a list with angles in radians, e.g. [-3.14, 3.14]
+random_rotate = 
+
+# a bool denoting left right flip or not, i.e, True or False
+flip_left_right =
+
+# a bool denoting up down flip or not, i.e, True or False
+flip_up_down = 
+
+# two lists of label convert, each label in label_convert_source is converted to the corresponding one in label_convert_target
+label_convert_source = [0, 1, 2, 3, 4]
+label_convert_target = [0, 0, 1, 0, 0]
+
+[network]
+# type of network
+net_type = UNet2D
+
+# name of network
+net_name = unet2d
+
+# input patch shape e.g, [D, H, W, C]
+data_shape = 
+
+# output patch shape 
+label_shape = 
+
+
+[training]
+# epoch
+epoch = 
+
+# number of batch per_epoch
+batch_number = 
+
+# weight decay
+decay = 1e-7

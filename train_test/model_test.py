@@ -1,23 +1,9 @@
-"""Script to finetune AlexNet using Tensorflow.
-
-With this script you can finetune AlexNet as provided in the alexnet.py
-class on any given dataset. Specify the configuration settings at the
-beginning according to your problem.
-This script was written for TensorFlow >= version 1.2rc0 and comes with a blog
-post, which you can find here:
-
-https://kratzert.github.io/2017/02/24/finetuning-alexnet-with-tensorflow.html
-
-Author: Frederik Kratzert
-contact: f.kratzert(at)gmail.com
+"""Script for training
+Author: Guotai Wang
 """
 
 import os
-cwd = os.getcwd()
-print(cwd)
 import sys
-sys.path.append('./')
-
 import numpy as np
 import tensorflow as tf
 from util.parse_config import parse_config
@@ -26,12 +12,6 @@ from datetime import datetime
 from tensorflow.contrib.data import Iterator
 import nibabel
 
-def save_array_as_nifty_volume(data, filename):
-    # numpy data shape [D, H, W]
-    # nifty image shape [W, H, W]
-    data = np.transpose(data, [2, 1, 0])
-    img = nibabel.Nifti1Image(data, np.eye(4))
-    nibabel.save(img, filename)
 
 """
 Configuration Part.

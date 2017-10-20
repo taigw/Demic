@@ -127,7 +127,7 @@ class ImageDataGenerator(object):
                 label_converted = tf.add(label_converted, label_temp)
             label_slice = label_converted
                 
-        return img_slice, label_slice
+        return img_slice, weight_slice, label_slice
     
     def __pad_tensor_to_desired_shape(self, inpt_tensor, outpt_shape):
         """ Pad a tensor to desired shape
