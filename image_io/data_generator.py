@@ -24,8 +24,8 @@ def random_flip_tensors_in_one_dim(x, d):
     y = []
     for xi in x:
         xi_xiflip = tf.stack([xi, tf.reverse(xi, tf.constant([d]))])
-        slice_begin = tf.concat([r, tf.shape(xi)], 1)
-        slice_size  = tf.concat([tf.constant(1), tf.shape(xi)], 1)
+        slice_begin = tf.concat([r, tf.shape(xi)], 0)
+        slice_size  = tf.concat([tf.constant(1), tf.shape(xi)], 0)
         flip = tf.slice(xi_xiflip, slice_begin, slice_size)
         flip = tf.reshape(flip, tf.shape(xi))
         y.append(flip)
