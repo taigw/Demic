@@ -18,7 +18,7 @@ def random_flip_tensors_in_one_dim(x, d):
     x: a list of tensors
     d: a integer denoting the axis
     """
-    r = tf.random_uniform([], 0, 1)
+    r = tf.random_uniform([1], 0, 1)
     r = tf.less(r, tf.constant(0.5))
     r = tf.cast(r, tf.int32)
     y = []
