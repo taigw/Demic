@@ -102,7 +102,7 @@ class ImageDataGenerator(object):
         flag = tf.scalar_mul(tf.constant(-1), flag)
         pad = tf.multiply(shape_sub, flag)
         pad = tf.add(pad, tf.ones_like(pad))
-        pad = tf.scalar_mul(tf.constant(0.5), pad)
+        pad = tf.scalar_mul(tf.constant(0.5), tf.cast(pad, tf.float32))
         pad = tf.cast(pad, tf.int32)
         pad_lr = tf.concat([pad, pad])
         outpt_tensor = tf.pad(inpt_tensor, pad_lr)
