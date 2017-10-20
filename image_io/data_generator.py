@@ -92,22 +92,42 @@ class ImageDataGenerator(object):
             label_slice = label_converted
                 
         return img_slice, label_slice
-            
+    
+    def __pad_tensor_to_desired_shape(self, inpt_tensor, outpt_shape):
+        """ Pad a tensor to desired shape
+        """
+        inpt_shape = tf.shape(inpt_tensor)
+        shape_sub = tf.subtract(shape_sub, outpt_shape)
+        pad = tf.add(shape_sub, tf.ones_like(shape_sub))
+        pad = tf.scalar_mul(tf.constant(0.5), pad)
+        flag = tf.cast(tf.tf.less(pad, tf.zeros_like(pad)), tf.int32)
+        flag = tf.scalar_mul(tf.constant(-1), flag)
+        pad = tf.multiply(pad, flag)
+        pad_lr = tf.concat([pad, pad])
+        outpt_tensor = tf.pad(inpt_tensor, pad_lr)
+        return outpt_tensor
+    
     def __random_sample_patch(self, img, weight, label):
         """Sample a patch from the image with a random position.
             The output size of img_slice and label_slice may not be the same. 
             image, weight and label are sampled with the same central voxel.
         """
+        data_shape_out  = tf.constant(self.config['data_shape'])
+        weight_shape_out= tf.constant(self.config['weight_shape'])
+        label_shape_out = tf.constant(self.config['label_shape'])
+        
+        # if output shape is larger than input shape, padding is needed
+        img = self.__pad_tensor_to_desired_shape(img, data_shape_out)
+        weight = self.__pad_tensor_to_desired_shape(weight, weight_shape_out)
+        label  = self.__pad_tensor_to_desired_shape(label, label_shape_out)
+        
         data_shape_in   = tf.shape(img)
         weight_shape_in = tf.shape(weight)
         label_shape_in  = tf.shape(label)
         
-        data_shape_out  = tf.constant(self.config['data_shape'])
-        weight_shape_out= tf.constant(self.config['weight_shape'])
-        label_shape_out = tf.constant(self.config['label_shape'])
         label_margin    = tf.constant(self.label_margin)
-        
         data_shape_sub = tf.subtract(data_shape_in, data_shape_out)
+        
         r = tf.random_uniform([], 0, 1.0)
         img_begin = tf.cast(tf.cast(data_shape_sub, tf.float32) * r, tf.int32)
         img_begin = tf.multiply(img_begin, tf.constant([1, 1, 1, 0]))
