@@ -102,9 +102,9 @@ class ImageDataGenerator(object):
             assert(len(random_rotate) == 2)
             assert(random_rotate[0] < random_rotate[1])
             angle  = tf.random_uniform([], random_rotate[0], random_rotate[1])
-            image  = tf.contrib.image.rotate(image_raw, angle)
-            weight = tf.contrib.image.rotate(weight_raw, angle)
-            label  = tf.contrib.image.rotate(label_raw, angle)
+            image  = tf.contrib.image.rotate(image, angle)
+            weight = tf.contrib.image.rotate(weight, angle)
+            label  = tf.contrib.image.rotate(label, angle)
         # augmentation by random flip
         if(self.config.get('flip_left_right', False)):
             [image, weight, label] = random_flip_tensors_in_one_dim([image, weight, label], 2)
