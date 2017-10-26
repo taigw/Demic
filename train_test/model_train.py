@@ -57,7 +57,6 @@ def model_train(config_file):
     lr = config_train.get('learning_rate', 1e-3)
     opt_step = tf.train.AdamOptimizer(lr).minimize(loss)
 
-
     # Place data loading and preprocessing on the cpu
     with tf.device('/cpu:0'):
         tr_data = ImageDataGenerator(config_tfrecords)
@@ -74,19 +73,33 @@ def model_train(config_file):
     sess.run(tf.global_variables_initializer())
     saver = tf.train.Saver()
 
-    num_epochs  = config_train['epoch']
+    maximal_epoch  = config_train['maximal_epoch']
     train_batches_per_epoch = config_train['batch_number']
-    for epoch in range(num_epochs):
-        print("{} Epoch number: {}".format(datetime.now(), epoch+1))
+    test_steps = config_train['test_steps']
+    loss_list = []
+    loss_file = config_train['model_save_prefix'] + "_loss.txt"
+    start_epoch = config_train.get('start_epoch', 0)
+    if( start_epoch> 0):
+        saver.restore(sess, config_train['pretrained_model'])
 
+    for epoch in range(start_epoch, maximal_epoch):
         # Initialize iterator with the training dataset
         sess.run(training_init_op)
-
         for step in range(train_batches_per_epoch):
-            print('epoch {0:}, step {1:}'.format(epoch, step))
-            # get next batch of data
             [img_batch, weight_batch, label_batch] = sess.run(next_batch)
             opt_step.run(session = sess, feed_dict={x:img_batch, w: weight_batch, y:label_batch})
+        batch_loss_list = []
+        for test_step in range(test_steps):
+            [img_batch, weight_batch, label_batch] = sess.run(next_batch)
+            loss_v = loss.eval(feed_dict ={x:img_batch, w:weight_batch, y:label_batch})
+            batch_loss_list.append(loss_v)
+        batch_loss = np.asarray(batch_loss_list, np.float32).mean()
+        print("{0:} Epoch {1:}, loss {2:}".format(datetime.now(), epoch+1, batch_loss))
+        # save loss and snapshot
+        loss_list.append(batch_dice)
+        np.savetxt(loss_file, np.asarray(loss_list))
+        if((epoch+1)%config_train['snapshot_epoch']  == 0):
+            saver.save(sess, config_train['model_save_prefix']+"_{0:}.ckpt".format(epoch+1))
 
 if __name__ == '__main__':
     if(len(sys.argv) != 2):
