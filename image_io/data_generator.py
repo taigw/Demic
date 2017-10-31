@@ -1,6 +1,7 @@
 # Created on Wed Oct 11 2017
 #
 # @author: Guotai Wang
+# reference: https://github.com/kratzert/finetune_alexnet_with_tensorflow
 """Containes a helper class for image input pipelines in tensorflow."""
 import os
 import tensorflow as tf
@@ -50,6 +51,7 @@ class ImageDataGenerator(object):
         data = TFRecordDataset(self.config['tfrecords_filename'],"ZLIB")
         data = data.map(self._parse_function, num_threads=5,
                         output_buffer_size=20*batch_size)
+        data = data.shuffle(buffer_size = 20*batch_size)
         data = data.batch(batch_size)
         self.data = data
 

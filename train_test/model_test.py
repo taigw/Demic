@@ -1,4 +1,4 @@
-"""Script for training
+"""Script for testing
 Author: Guotai Wang
 """
 
@@ -6,167 +6,76 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 from util.parse_config import parse_config
-from image_io.data_generator import ImageDataGenerator
 from datetime import datetime
-from tensorflow.contrib.data import Iterator
-import nibabel
+from net.net_factory import NetFactory
+from image_io.file_read_write import load_nifty_volume_as_array
+from image_io.convert_to_tfrecords import itensity_normalize_one_volume
+
+def model_test(config_file):
+    img = load_nifty_volume_as_array('/Users/guotaiwang/Documents/data/FetalBrain/Train/a01_02_Image.nii.gz')
+    img = np.asarray(img, np.float32)
+    img = itensity_normalize_one_volume(img, 0)
+    print(img.mean(), img.std())
+    [D, H, W] = img.shape
+    print('input image shape', img.shape)
+    config = parse_config(config_file)
+    config_net  = config['network']
+    config_test = config['testing']
+
+    net_type    = config_net['net_type']
+    net_name    = config_net['net_name']
+    batch_size  = 1 #config_tfrecords.get('batch_size', 1)
+#    full_data_shape  = [batch_size] + config_net['data_shape']
+#    full_label_shape = [batch_size] + config_net['label_shape']
+    full_data_shape  = [batch_size] + [1, H, W, 1]
+    full_label_shape = [batch_size] + [1, H, W, 1]
+    data_channel= full_data_shape[-1]
+    class_num   = config_net['class_num']
+
+    full_weight_shape = [i for i in full_data_shape]
+    full_weight_shape[-1] = 1
+    data_space_shape  = full_data_shape[:-1]
+    label_space_shape = full_label_shape[:-1]
+    
+    # construct graph
+    x = tf.placeholder(tf.float32, shape = full_data_shape)
+    w = tf.placeholder(tf.float32, shape = full_weight_shape)
+    y = tf.placeholder(tf.int32, shape = full_label_shape)
+
+    net_class = NetFactory.create(net_type)
+    net = net_class(num_classes = class_num,
+                    w_regularizer = None,
+                    b_regularizer = None,
+                    name = net_name)
+    predicty = net(x, is_training = True)
+    print('network output shape ', predicty)
+    proby = tf.nn.softmax(predicty)
 
 
-"""
-Configuration Part.
-"""
-config_file = 'image_io/cfg_read_tfrecord.txt'
-config = parse_config(config_file)
-config_tfrecords  = config['tfrecords']
-# Path to the textfiles for the trainings and validation set
-train_file = 'images/train.txt'
-val_file = 'images/test.txt'
-
-# Learning params
-learning_rate = 0.01
-num_epochs = 5
-batch_size = config_tfrecords['batch_size']
-
-# Network params
-dropout_rate = 0.5
-num_classes = 3
-train_layers = ['fc8', 'fc7', 'fc6']
-
-# How often we want to write the tf.summary data to disk
-display_step = 20
-
-# Path for tf.summary.FileWriter and to store model checkpoints
-filewriter_path = "/tmp/finetune_alexnet/tensorboard"
-checkpoint_path = "/tmp/finetune_alexnet/checkpoints"
-
-"""
-Main Part of the finetuning Script.
-"""
-
-## Create parent path if it doesn't exist
-#if not os.path.isdir(checkpoint_path):
-#    os.mkdir(checkpoint_path)
-
-# Place data loading and preprocessing on the cpu
-with tf.device('/cpu:0'):
-    tr_data = ImageDataGenerator(config_tfrecords)
-#    tr_data = ImageDataGenerator(train_file,
-#                                 mode='training',
-#                                 batch_size=batch_size,
-#                                 num_classes=num_classes,
-#                                 shuffle=True)
-#    val_data = ImageDataGenerator(val_file,
-#                                  mode='inference',
-#                                  batch_size=batch_size,
-#                                  num_classes=num_classes,
-#                                  shuffle=False)
-
-    # create an reinitializable iterator given the dataset structure
-    iterator = Iterator.from_structure(tr_data.data.output_types,
-                                       tr_data.data.output_shapes)
-    next_batch = iterator.get_next()
-
-# Ops for initializing the two different iterators
-training_init_op = iterator.make_initializer(tr_data.data)
-#validation_init_op = iterator.make_initializer(val_data.data)
-
-# TF placeholder for graph input and output
-x = tf.placeholder(tf.float32, [batch_size, 227, 227, 3])
-y = tf.placeholder(tf.float32, [batch_size, num_classes])
-keep_prob = tf.placeholder(tf.float32)
-
-## Initialize model
-#model = AlexNet(x, keep_prob, num_classes, train_layers)
-#
-## Link variable to model output
-#score = model.fc8
-#
-## List of trainable variables of the layers we want to train
-#var_list = [v for v in tf.trainable_variables() if v.name.split('/')[0] in train_layers]
-#
-## Op for calculating the loss
-#with tf.name_scope("cross_ent"):
-#    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=score,
-#                                                                  labels=y))
-#
-## Train op
-#with tf.name_scope("train"):
-#    # Get gradients of all trainable variables
-#    gradients = tf.gradients(loss, var_list)
-#    gradients = list(zip(gradients, var_list))
-#
-#    # Create optimizer and apply gradient descent to the trainable variables
-#    optimizer = tf.train.GradientDescentOptimizer(learning_rate)
-#    train_op = optimizer.apply_gradients(grads_and_vars=gradients)
-#
-## Add gradients to summary
-#for gradient, var in gradients:
-#    tf.summary.histogram(var.name + '/gradient', gradient)
-#
-## Add the variables we train to the summary
-#for var in var_list:
-#    tf.summary.histogram(var.name, var)
-#
-## Add the loss to summary
-#tf.summary.scalar('cross_entropy', loss)
-#
-#
-## Evaluation op: Accuracy of the model
-#with tf.name_scope("accuracy"):
-#    correct_pred = tf.equal(tf.argmax(score, 1), tf.argmax(y, 1))
-#    accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-#
-## Add the accuracy to the summary
-#tf.summary.scalar('accuracy', accuracy)
-#
-## Merge all summaries together
-#merged_summary = tf.summary.merge_all()
-#
-## Initialize the FileWriter
-#writer = tf.summary.FileWriter(filewriter_path)
-#
-## Initialize an saver for store model checkpoints
-#saver = tf.train.Saver()
-
-# Get the number of training/validation steps per epoch
-train_batches_per_epoch = 3 #int(np.floor(tr_data.data_size/batch_size))
-#val_batches_per_epoch = int(np.floor(val_data.data_size / batch_size))
-
-# Start Tensorflow session
-with tf.Session() as sess:
-
-    # Initialize all variables
+    # start the session
+    sess = tf.InteractiveSession()
     sess.run(tf.global_variables_initializer())
+    saver = tf.train.Saver()
+    saver.restore(sess, config_net['model_file'])
+    for i in range(13,24):
+        print(i)
+        img_slice = img[i]
+        slice = np.reshape(img_slice, [1, 1, H, W, 1])
+        proby = sess.run(predicty, feed_dict = {x:slice})[0]
+        predy =  np.asarray(np.argmax(proby, axis = 3), np.uint16)[0]
+        if(predy.sum() > 0):
+            plt.subplot(1,2,1); plt.imshow(img_slice)
+            plt.subplot(1,2,2); plt.imshow(predy)
+            plt.show()
 
-    # Add the model graph to TensorBoard
-#    writer.add_graph(sess.graph)
 
-    # Load the pretrained weights into the non-trainable layer
-#    model.load_initial_weights(sess)
-
-#    print("{} Start training...".format(datetime.now()))
-#    print("{} Open Tensorboard at --logdir {}".format(datetime.now(),
-#                                                      filewriter_path))
-
-    # Loop over number of epochs
-    total_step = 0
-    for epoch in range(num_epochs):
-
-        print("{} Epoch number: {}".format(datetime.now(), epoch+1))
-
-        # Initialize iterator with the training dataset
-        sess.run(training_init_op)
-
-        for step in range(train_batches_per_epoch):
-
-            # get next batch of data
-            [img_batch, label_batch] = sess.run(next_batch)
-            img_0 = img_batch[0,:,:,:, 0]
-            lab_0 = label_batch[0,:,:,:,0]
-#            lab_1 = np.zeros_like(img_0)
-#            lab_1[np.ix_(range(4,11), range(128), range(128))] = lab_0
-            print(epoch, step, img_0.shape, lab_0.shape)
-            save_array_as_nifty_volume(img_0, './temp/img{0:}.nii'.format(total_step))
-            save_array_as_nifty_volume(lab_0, './temp/lab{0:}.nii'.format(total_step))
-            total_step = total_step + 1
+if __name__ == '__main__':
+    if(len(sys.argv) != 2):
+        print('Number of arguments should be 2. e.g.')
+        print('    python model_test.py config.txt')
+        exit()
+    config_file = str(sys.argv[1])
+    assert(os.path.isfile(config_file))
+    model_test(config_file)

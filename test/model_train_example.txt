@@ -10,15 +10,18 @@ data_shape  = [50, 144, 130, 4]
 weight_shape= [50, 144, 130, 1]
 label_shape = [50, 144, 130, 1]
 
+# whether load ground truth or not
+with_ground_truth = True
+
 # data augmentation
 # a list with angles in radians, e.g. [-3.14, 3.14]
-random_rotate = 
+random_rotate = [-3.14, 3.14]
 
 # a bool denoting left right flip or not, i.e, True or False
-flip_left_right =
+flip_left_right = True
 
 # a bool denoting up down flip or not, i.e, True or False
-flip_up_down = 
+flip_up_down = True
 
 # two lists of label convert, each label in label_convert_source is converted to the corresponding one in label_convert_target
 label_convert_source = [0, 1, 2, 3, 4]

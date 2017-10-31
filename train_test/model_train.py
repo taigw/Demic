@@ -16,7 +16,6 @@ from tensorflow.contrib.data import Iterator
 
 def model_train(config_file):
     config = parse_config(config_file)
-    config = parse_config(config_file)
     config_tfrecords = config['tfrecords']
     config_net       = config['network']
     config_train     = config['training']
@@ -50,7 +49,8 @@ def model_train(config_file):
                     b_regularizer = b_regularizer,
                     name = net_name)
     predicty = net(x, is_training = True)
-    print(predicty)
+    print('network output shape ', predicty.shape)
+    
     # define loss function and optimization method
     loss_func = LossFunction(n_class=class_num)
     loss = loss_func(predicty, y, weight_map = w)
@@ -60,7 +60,6 @@ def model_train(config_file):
     # Place data loading and preprocessing on the cpu
     with tf.device('/cpu:0'):
         tr_data = ImageDataGenerator(config_tfrecords)
-
         # create an reinitializable iterator given the dataset structure
         iterator = Iterator.from_structure(tr_data.data.output_types,
                                            tr_data.data.output_shapes)
@@ -96,7 +95,7 @@ def model_train(config_file):
         batch_loss = np.asarray(batch_loss_list, np.float32).mean()
         print("{0:} Epoch {1:}, loss {2:}".format(datetime.now(), epoch+1, batch_loss))
         # save loss and snapshot
-        loss_list.append(batch_dice)
+        loss_list.append(batch_loss)
         np.savetxt(loss_file, np.asarray(loss_list))
         if((epoch+1)%config_train['snapshot_epoch']  == 0):
             saver.save(sess, config_train['model_save_prefix']+"_{0:}.ckpt".format(epoch+1))
