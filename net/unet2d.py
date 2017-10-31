@@ -27,8 +27,8 @@ class UNet2D(TrainableLayer):
                  name='UNet'):
         super(UNet2D, self).__init__(name=name)
         
-#        self.n_features = [64, 128, 256, 512, 1024]
-        self.n_features = [64, 64, 64, 128, 128]
+        self.n_features = [64, 128, 256, 512, 1024]
+#        self.n_features = [16, 32, 64, 128, 256]
         self.acti_func = acti_func
         self.num_classes = num_classes
         
@@ -40,93 +40,112 @@ class UNet2D(TrainableLayer):
     def layer_op(self, images, is_training, layer_id=-1):
         # image_size  should be divisible by 8
         spatial_dims = images.get_shape()[1:-1].as_list()
-        assert (spatial_dims[-2] % 8 == 0 )
-        assert (spatial_dims[-1] % 8 == 0 )
-        assert (spatial_dims[-2] >= 89)
-        assert (spatial_dims[-1] >= 89 )
+        assert (spatial_dims[-2] % 16 == 0 )
+        assert (spatial_dims[-1] % 16 == 0 )
         
-        block_layer = UNetBlock('DOWNSAMPLE',
-                                (self.n_features[0], self.n_features[1]),
-                                ((1,3,3), (1,3,3)), with_downsample_branch=True,
-                                w_initializer=self.initializers['w'],
-                                w_regularizer=self.regularizers['w'],
-                                acti_func=self.acti_func,
-                                name='L1')
-        pool_1, conv_1 = block_layer(images, is_training)
-        print(block_layer)
+        block1 = UNetBlock((self.n_features[0], self.n_features[0]),
+                            ((1,3,3), (1,3,3)),
+                            w_initializer=self.initializers['w'],
+                            w_regularizer=self.regularizers['w'],
+                            acti_func=self.acti_func,
+                            name='B1')
+                            
+        block2 = UNetBlock((self.n_features[1], self.n_features[1]),
+                            ((1,3,3), (1,3,3)),
+                            w_initializer=self.initializers['w'],
+                            w_regularizer=self.regularizers['w'],
+                            acti_func=self.acti_func,
+                            name='B2')
+                            
+        block3 = UNetBlock((self.n_features[2], self.n_features[2]),
+                            ((1,3,3), (1,3,3)),
+                            w_initializer=self.initializers['w'],
+                            w_regularizer=self.regularizers['w'],
+                            acti_func=self.acti_func,
+                            name='B3')
+                            
+        block4 = UNetBlock((self.n_features[3], self.n_features[3]),
+                            ((1,3,3), (1,3,3)),
+                            w_initializer=self.initializers['w'],
+                            w_regularizer=self.regularizers['w'],
+                            acti_func=self.acti_func,
+                            name='B4')
+                            
+        block5 = UNetBlock((self.n_features[4], self.n_features[4]),
+                           ((1,3,3), (1,3,3)),
+                           w_initializer=self.initializers['w'],
+                           w_regularizer=self.regularizers['w'],
+                           acti_func=self.acti_func,
+                           name='B5')
+            
+        block6 = UNetBlock((self.n_features[3], self.n_features[3]),
+                          ((1,3,3), (1,3,3)),
+                          w_initializer=self.initializers['w'],
+                          w_regularizer=self.regularizers['w'],
+                          acti_func=self.acti_func,
+                          name='B6')
 
-        block_layer = UNetBlock('DOWNSAMPLE',
-                                (self.n_features[1], self.n_features[2]),
-                                ((1,3,3), (1,3,3)), with_downsample_branch=True,
-                                w_initializer=self.initializers['w'],
-                                w_regularizer=self.regularizers['w'],
-                                acti_func=self.acti_func,
-                                name='L2')
-        pool_2, conv_2 = block_layer(pool_1, is_training)
-        print(block_layer)
+        block7 = UNetBlock((self.n_features[2], self.n_features[2]),
+                           ((1,3,3), (1,3,3)),
+                           w_initializer=self.initializers['w'],
+                           w_regularizer=self.regularizers['w'],
+                           acti_func=self.acti_func,
+                           name='B7')
+        block8 = UNetBlock((self.n_features[1], self.n_features[1]),
+                          ((1,3,3), (1,3,3)),
+                          w_initializer=self.initializers['w'],
+                          w_regularizer=self.regularizers['w'],
+                          acti_func=self.acti_func,
+                          name='B8')
+                          
+        block9 = UNetBlock((self.n_features[0], self.n_features[0]),
+                         ((1,3,3), (1,3,3)),
+                         w_initializer=self.initializers['w'],
+                         w_regularizer=self.regularizers['w'],
+                         acti_func=self.acti_func,
+                         name='B9')
+        conv = ConvolutionalLayer(n_output_chns=self.num_classes,
+                               kernel_size=(1,1,1),
+                               w_initializer=self.initializers['w'],
+                               w_regularizer=self.regularizers['w'],
+                               acti_func=self.acti_func,
+                               name='conv')
+        down1 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down1')
+        down2 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down2')
+        down3 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down3')
+        down4 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down4')
+        up1 = DeconvolutionalLayer(n_output_chns=self.n_features[3], kernel_size=2, stride=2, name='up1')
+        up2 = DeconvolutionalLayer(n_output_chns=self.n_features[2], kernel_size=2, stride=2, name='up2')
+        up3 = DeconvolutionalLayer(n_output_chns=self.n_features[1], kernel_size=2, stride=2, name='up3')
+        up4 = DeconvolutionalLayer(n_output_chns=self.n_features[0], kernel_size=2, stride=2, name='up4')
+        
+        f1 = block1(images, is_training)
+        d1 = down1(f1)
+        f2 = block2(d1, is_training)
+        d2 = down2(f2)
+        f3 = block3(d2, is_training)
+        d3 = down3(f3)
+        f4 = block4(d3, is_training)
+        d4 = down4(f4)
+        f5 = block5(d4, is_training)
+        
+        f5up = up1(f5, is_training)
+        f4cat = tf.concat((f4, f5up), axis = -1)
+        f6 = block6(f4cat, is_training)
+        
+        f6up = up2(f6, is_training)
+        f3cat = tf.concat((f3, f6up), axis = -1)
+        f7 = block7(f3cat, is_training)
 
-        block_layer = UNetBlock('DOWNSAMPLE',
-                                (self.n_features[2], self.n_features[3]),
-                                ((1,3,3), (1,3,3)), with_downsample_branch=True,
-                                w_initializer=self.initializers['w'],
-                                w_regularizer=self.regularizers['w'],
-                                acti_func=self.acti_func,
-                                name='L3')
-        pool_3, conv_3 = block_layer(pool_2, is_training)
-        print(block_layer)
+        f7up = up3(f7, is_training)
+        f2cat = tf.concat((f2, f7up), axis = -1)
+        f8 = block7(f2cat, is_training)
+        
+        f8up = up4(f8, is_training)
+        f1cat = tf.concat((f1, f8up), axis = -1)
+        f9 = block9(f1cat, is_training)
+        output = conv(f9, is_training)
 
-        block_layer = UNetBlock('UPSAMPLE',
-                                (self.n_features[3], self.n_features[4]),
-                                ((1,3,3), (1,3,3)), with_downsample_branch=False,
-                                w_initializer=self.initializers['w'],
-                                w_regularizer=self.regularizers['w'],
-                                acti_func=self.acti_func,
-                                name='L4')
-        up_3, _ = block_layer(pool_3, is_training)
-        print(block_layer)
-
-        block_layer = UNetBlock('UPSAMPLE',
-                                (self.n_features[3], self.n_features[3]),
-                                ((1,3,3), (1,3,3)), with_downsample_branch=False,
-                                w_initializer=self.initializers['w'],
-                                w_regularizer=self.regularizers['w'],
-                                acti_func=self.acti_func,
-                                name='R3')
-        concat_3 = ElementwiseLayer('CONCAT')(conv_3, up_3)
-        up_2, _ = block_layer(concat_3, is_training)
-        print(block_layer)
-
-        block_layer = UNetBlock('UPSAMPLE',
-                                (self.n_features[2], self.n_features[2]),
-                                ((1,3,3), (1,3,3)), with_downsample_branch=False,
-                                w_initializer=self.initializers['w'],
-                                w_regularizer=self.regularizers['w'],
-                                acti_func=self.acti_func,
-                                name='R2')
-        concat_2 = ElementwiseLayer('CONCAT')(conv_2, up_2)
-        up_1, _ = block_layer(concat_2, is_training)
-        print(block_layer)
-
-        block_layer = UNetBlock('NONE',
-                                (self.n_features[1],
-                                 self.n_features[1],
-                                 self.num_classes),
-                                ((1,3,3), (1,3,3), 1),
-                                with_downsample_branch=True,
-                                w_initializer=self.initializers['w'],
-                                w_regularizer=self.regularizers['w'],
-                                acti_func=self.acti_func,
-                                name='R1_FC')
-        concat_1 = ElementwiseLayer('CONCAT')(conv_1, up_1)
-
-        # for the last layer, upsampling path is not used
-        _, output_tensor = block_layer(concat_1, is_training)
-
-
-#        crop_layer = CropLayer(border=44, name='crop-88')
-#        crop_layer = TensorSliceLayer(margin = (1, 44, 44))
-#        output_tensor = crop_layer(output_tensor)
-        print(block_layer)
         return output_tensor
 
 
@@ -135,7 +154,6 @@ SUPPORTED_OP = {'DOWNSAMPLE', 'UPSAMPLE', 'NONE'}
 
 class UNetBlock(TrainableLayer):
     def __init__(self,
-                 func,
                  n_chns,
                  kernels,
                  w_initializer=None,
@@ -146,11 +164,8 @@ class UNetBlock(TrainableLayer):
         
         super(UNetBlock, self).__init__(name=name)
         
-        self.func = look_up_operations(func.upper(), SUPPORTED_OP)
-        
         self.kernels = kernels
         self.n_chns = n_chns
-        self.with_downsample_branch = with_downsample_branch
         self.acti_func = acti_func
         
         self.initializers = {'w': w_initializer}
@@ -166,48 +181,5 @@ class UNetBlock(TrainableLayer):
                                          acti_func=self.acti_func,
                                          name='{}'.format(n_features))
             output_tensor = conv_op(output_tensor, is_training)
-        
-        if self.with_downsample_branch:
-            branch_output = output_tensor
-        else:
-            branch_output = None
-        
-        if self.func == 'DOWNSAMPLE':
-            downsample_op = DownSampleLayer('MAX',
-                                            kernel_size=(1,2,2),
-                                            stride=(1,2,2),
-                                            name='down_2x2')
-            output_tensor = downsample_op(output_tensor)
-        elif self.func == 'UPSAMPLE':
-            upsample_op = DeconvolutionalLayer(n_output_chns=self.n_chns[-1],
-                                               kernel_size=(1,2,2),
-                                               stride=(1,2,2),
-                                               name='up_2x2')
-            output_tensor = upsample_op(output_tensor, is_training)
-        elif self.func == 'NONE':
-            pass  # do nothing
-        return output_tensor, branch_output
-
-class TensorSliceLayer(TrainableLayer):
-    """
-        extract the central part of a tensor
-        """
     
-    def __init__(self, margin=1, regularizer=None, name='tensor_extract'):
-        self.layer_name = name
-        super(TensorSliceLayer, self).__init__(name=self.layer_name)
-        if(isinstance(margin, int)):
-            self.margin = [margin] * 3
-        else:
-            self.margin = list(margin)
-    
-    def layer_op(self, input_tensor):
-        input_shape = input_tensor.get_shape().as_list()
-        begin = [0] * len(input_shape)
-        begin[1:4] = self.margin
-        size = input_shape
-        space_shape = size[1:4]
-        size[1:4] =  [space_shape[i]- 2 * self.margin[i] for i in range(3)]
-        output_tensor = tf.slice(input_tensor, begin, size, name='slice')
         return output_tensor
-
