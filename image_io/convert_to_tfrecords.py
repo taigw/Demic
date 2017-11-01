@@ -83,12 +83,14 @@ class DataLoader():
         return patient_names    
 
     def load_data(self):
-        self.patient_names = self.__get_patient_names()
+        patient_names = self.__get_patient_names()
+        if(not(self.data_subset is None)):
+            patient_names = patient_names[self.data_subset[0]:self.data_subset[1]]
+        self.patient_names = patient_names
         X = []
         W = []
         Y = []
-        data_subset = [0, len(self.patient_names)] if (self.data_subset is None) else self.data_subset
-        for i in range(data_subset[0], data_subset[1]):
+        for i in range(len(self.patient_names)):
             print(i, self.patient_names[i])
             volume_list = []
             for mod_idx in range(len(self.modality_postfix)):
@@ -113,12 +115,22 @@ class DataLoader():
                 y_array = np.asarray([label])
                 y_array = np.transpose(y_array, [1, 2, 3, 0]) # [D, H, W, C]
                 Y.append(y_array)
-            print(volume_array.shape, w_array.shape, y_array.shape)
-        print('{0:} volumes have been loaded'.format(data_subset[1] - data_subset[0]))
+        print('{0:} volumes have been loaded'.format(len(self.patient_names)))
         self.data   = X
         self.weight = W
         self.label  = Y
-        
+    
+    def get_image_number(self):
+        return len(self.patient_names)
+
+    def get_image(self, idx, with_ground_truth = False):
+        if(with_ground_truth and self.with_ground_truth):
+            label = self.label[idx]
+        else:
+            label = []
+        output = [self.patient_names[idx], self.data[idx], self.weight[idx], label]
+        return output
+
     def save_to_tfrecords(self):
         def _bytes_feature(value):
             return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
