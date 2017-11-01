@@ -23,6 +23,7 @@ def test_generator(config_file):
     temp_dir    = config_data['temp_dir']
 
     # Place data loading and preprocessing on the cpu
+    tf.set_random_seed(0)
     with tf.device('/cpu:0'):
         tr_data = ImageDataGenerator(config_data)
 
@@ -51,7 +52,7 @@ def test_generator(config_file):
             sess.run(training_init_op)
             for step in range(train_batches_per_epoch):
                 # get next batch of data
-                [img_batch, label_batch] = sess.run(next_batch)
+                [img_batch, weight_batch, label_batch] = sess.run(next_batch)
                 img_0 = img_batch[0,:,:,:, 0]
                 lab_0 = label_batch[0,:,:,:,0]
 #                lab_1 = np.zeros_like(img_0)

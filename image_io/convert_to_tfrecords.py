@@ -1,3 +1,8 @@
+# Created on Wed Oct 11 2017
+#
+# @author: Guotai Wang
+# reference: http://warmspringwinds.github.io/tensorflow/tf-slim/2016/12/21/tfrecords-guide/
+
 import os
 import sys
 import numpy as np

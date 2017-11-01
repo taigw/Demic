@@ -13,3 +13,12 @@ def load_nifty_volume_as_array(filename):
     data = np.transpose(data, [2,1,0])
     return data
 
+
+def save_array_as_nifty_volume(data, filename):
+    """Write a numpy array as nifty image
+        numpy data shape [D, H, W]
+        nifty image shape [W, H, D]
+        """
+    data = np.transpose(data, [2, 1, 0])
+    img = nibabel.Nifti1Image(data, np.eye(4))
+    nibabel.save(img, filename)

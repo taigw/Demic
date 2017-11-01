@@ -55,7 +55,9 @@ def model_train(config_file):
     loss_func = LossFunction(n_class=class_num)
     loss = loss_func(predicty, y, weight_map = w)
     lr = config_train.get('learning_rate', 1e-3)
-    opt_step = tf.train.AdamOptimizer(lr).minimize(loss)
+    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS) # for batch normalization
+    with tf.control_dependencies(update_ops):
+        opt_step = tf.train.AdamOptimizer(lr).minimize(loss)
 
     # Place data loading and preprocessing on the cpu
     with tf.device('/cpu:0'):

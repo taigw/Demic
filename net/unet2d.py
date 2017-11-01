@@ -27,8 +27,9 @@ class UNet2D(TrainableLayer):
                  name='UNet'):
         super(UNet2D, self).__init__(name=name)
         
-        self.n_features = [64, 128, 256, 512, 1024]
-#        self.n_features = [16, 32, 64, 128, 256]
+#        self.n_features = [64, 128, 256, 512, 1024]
+        self.n_features = [64, 128, 256, 256, 256]
+#        self.n_features = [32, 32, 32, 32, 32]
         self.acti_func = acti_func
         self.num_classes = num_classes
         
@@ -91,6 +92,7 @@ class UNet2D(TrainableLayer):
                            w_regularizer=self.regularizers['w'],
                            acti_func=self.acti_func,
                            name='B7')
+                           
         block8 = UNetBlock((self.n_features[1], self.n_features[1]),
                           ((1,3,3), (1,3,3)),
                           w_initializer=self.initializers['w'],
@@ -104,6 +106,7 @@ class UNet2D(TrainableLayer):
                          w_regularizer=self.regularizers['w'],
                          acti_func=self.acti_func,
                          name='B9')
+                         
         conv = ConvolutionalLayer(n_output_chns=self.num_classes,
                                kernel_size=(1,1,1),
                                w_initializer=self.initializers['w'],
@@ -114,10 +117,11 @@ class UNet2D(TrainableLayer):
         down2 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down2')
         down3 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down3')
         down4 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down4')
-        up1 = DeconvolutionalLayer(n_output_chns=self.n_features[3], kernel_size=2, stride=2, name='up1')
-        up2 = DeconvolutionalLayer(n_output_chns=self.n_features[2], kernel_size=2, stride=2, name='up2')
-        up3 = DeconvolutionalLayer(n_output_chns=self.n_features[1], kernel_size=2, stride=2, name='up3')
-        up4 = DeconvolutionalLayer(n_output_chns=self.n_features[0], kernel_size=2, stride=2, name='up4')
+        
+        up1 = DeconvolutionalLayer(n_output_chns=self.n_features[3], kernel_size=(1,2,2), stride=(1,2,2), name='up1')
+        up2 = DeconvolutionalLayer(n_output_chns=self.n_features[2], kernel_size=(1,2,2), stride=(1,2,2), name='up2')
+        up3 = DeconvolutionalLayer(n_output_chns=self.n_features[1], kernel_size=(1,2,2), stride=(1,2,2), name='up3')
+        up4 = DeconvolutionalLayer(n_output_chns=self.n_features[0], kernel_size=(1,2,2), stride=(1,2,2), name='up4')
         
         f1 = block1(images, is_training)
         d1 = down1(f1)
@@ -139,14 +143,14 @@ class UNet2D(TrainableLayer):
 
         f7up = up3(f7, is_training)
         f2cat = tf.concat((f2, f7up), axis = -1)
-        f8 = block7(f2cat, is_training)
+        f8 = block8(f2cat, is_training)
         
         f8up = up4(f8, is_training)
         f1cat = tf.concat((f1, f8up), axis = -1)
         f9 = block9(f1cat, is_training)
         output = conv(f9, is_training)
 
-        return output_tensor
+        return output
 
 
 SUPPORTED_OP = {'DOWNSAMPLE', 'UPSAMPLE', 'NONE'}
@@ -158,7 +162,6 @@ class UNetBlock(TrainableLayer):
                  kernels,
                  w_initializer=None,
                  w_regularizer=None,
-                 with_downsample_branch=False,
                  acti_func='relu',
                  name='UNet_block'):
         
