@@ -51,7 +51,8 @@ class ImageDataGenerator(object):
         data = TFRecordDataset(self.config['tfrecords_filename'],"ZLIB")
         data = data.map(self._parse_function, num_threads=5,
                         output_buffer_size=20*batch_size)
-#        data = data.shuffle(buffer_size = 20*batch_size)
+        if(self.config.get('data_shuffle', False)):
+            data = data.shuffle(buffer_size = 20*batch_size)
         data = data.batch(batch_size)
         self.data = data
 
@@ -175,7 +176,7 @@ class ImageDataGenerator(object):
         
         indices_max = tf.reduce_max(indices, reduction_indices=[0])
         indices_max = tf.add(indices_max, margin)
-        indices_max = tf.minimum(indices_max, tf.shape(label))
+        indices_max = tf.minimum(indices_max, tf.subtract(tf.shape(label), tf.constant([1,1,1,1], tf.int32)))
         return [indices_min, indices_max]
     
     def __crop_4d_tensor_with_bounding_box(self, input_tensor, idx_min, idx_max):

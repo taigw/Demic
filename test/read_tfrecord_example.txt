@@ -10,6 +10,10 @@ data_shape  = [50, 144, 130, 4]
 weight_shape= [50, 144, 130, 1]
 label_shape = [50, 144, 130, 1]
 
+# data shuffle at each epoch
+# (optional, boolean)
+data_shuffle = False
+
 # data augmentation
 # a list with angles in radians, e.g. [-3.14, 3.14]
 random_rotate = 

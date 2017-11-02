@@ -36,8 +36,8 @@ def test_generator(config_file):
     training_init_op = iterator.make_initializer(tr_data.data)
     #validation_init_op = iterator.make_initializer(val_data.data)
 
-    train_batches_per_epoch = 3 #int(np.floor(tr_data.data_size/batch_size))
-    num_epochs = 10
+    train_batches_per_epoch = config['training']['batch_number']
+    num_epochs = config['training']['maximal_epoch']
 
     # Start Tensorflow session
     with tf.Session() as sess:
