@@ -113,10 +113,10 @@ class UNet2D(TrainableLayer):
                                w_regularizer=self.regularizers['w'],
                                acti_func=self.acti_func,
                                name='conv')
-        down1 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down1')
-        down2 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down2')
-        down3 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down3')
-        down4 = DownSampleLayer('MAX', kernel_size=2, stride=2,name='down4')
+        down1 = DownSampleLayer('MAX', kernel_size=(1,2,2), stride=(1,2,2), name='down1')
+        down2 = DownSampleLayer('MAX', kernel_size=(1,2,2), stride=(1,2,2), name='down2')
+        down3 = DownSampleLayer('MAX', kernel_size=(1,2,2), stride=(1,2,2), name='down3')
+        down4 = DownSampleLayer('MAX', kernel_size=(1,2,2), stride=(1,2,2), name='down4')
         
         up1 = DeconvolutionalLayer(n_output_chns=self.n_features[3], kernel_size=(1,2,2), stride=(1,2,2), name='up1')
         up2 = DeconvolutionalLayer(n_output_chns=self.n_features[2], kernel_size=(1,2,2), stride=(1,2,2), name='up2')
