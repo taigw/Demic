@@ -43,7 +43,6 @@ def test_generator(config_file):
     with tf.Session() as sess:
         # Initialize all variables
         sess.run(tf.global_variables_initializer())
-        
         total_step = 0
         # Loop over number of epochs
         for epoch in range(num_epochs):
@@ -55,8 +54,6 @@ def test_generator(config_file):
                 [img_batch, weight_batch, label_batch] = sess.run(next_batch)
                 img_0 = img_batch[0,:,:,:, 0]
                 lab_0 = label_batch[0,:,:,:,0]
-#                lab_1 = np.zeros_like(img_0)
-#                lab_1[np.ix_(range(4,11), range(128), range(128))] = lab_0
                 print(epoch, step, img_0.shape, lab_0.shape)
                 save_array_as_nifty_volume(img_0, '{0:}/img{1:}.nii'.format(temp_dir, total_step))
                 save_array_as_nifty_volume(lab_0, '{0:}/lab{1:}.nii'.format(temp_dir, total_step))

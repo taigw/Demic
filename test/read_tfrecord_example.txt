@@ -24,5 +24,10 @@ flip_up_down =
 label_convert_source = [0, 1, 2, 3, 4]
 label_convert_target = [0, 0, 1, 0, 0]
 
+# patch sampling mode
+# 0:randomly sample patch with fixed size,
+# 1:crop with bounding box and resize within plane, and randomly sample along z axis
+patch_mode = 1
+
 # dir to save temporary output
 temp_dir = temp
