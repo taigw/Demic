@@ -50,7 +50,7 @@ def model_train(config_file):
                     name = net_name)
     predicty = net(x, is_training = True)
     print('network output shape ', predicty.shape)
-    
+
     # define loss function and optimization method
     loss_func = LossFunction(n_class=class_num)
     loss = loss_func(predicty, y, weight_map = w)
