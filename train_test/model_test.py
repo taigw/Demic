@@ -138,6 +138,21 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
             prob = set_roi_to_nd_volume(prob, roi_center, prob_mini_batch[batch_idx-batch_start_idx])
     return prob
 
+def convert_label(in_volume, label_convert_source, label_convert_target):
+    mask_volume = np.zeros_like(in_volume)
+    convert_volume = np.zeros_like(in_volume)
+    for i in range(len(label_convert_source)):
+        source_lab = label_convert_source[i]
+        target_lab = label_convert_target[i]
+        if(source_lab != target_lab):
+            temp_source = np.asarray(in_volume == source_lab)
+            temp_target = target_lab * temp_source
+            mask_volume = mask_volume + temp_source
+            convert_volume = convert_volume + temp_target
+    out_volume = in_volume * 1
+    out_volume[mask_volume>0] = convert_volume[mask_volume>0]
+    return out_volume
+
 class TestAgent:
     def __init__(self, config):
         self.config_net = config['network']
@@ -205,12 +220,18 @@ def model_test(config_file):
     data_loader.load_data()
     test_agent = TestAgent(config)
     
+    label_source = config_data.get('label_convert_source', None)
+    label_target = config_data.get('label_convert_target', None)
+    if(not(label_source is None) and not(label_source is None)):
+        assert(len(label_source == len(label_target)))
     img_num = data_loader.get_image_number()
     print('image number', img_num)
     for i in range(img_num):
         [name, img, weight, lab] = data_loader.get_image(i)
         print(i, name, img.shape)
         out = test_agent.test_one_volume(img)
+        if(not(label_source is None) and not(label_source is None)):
+            out = convert_label(out, label_source, label_target)
         save_name = '{0:}_{1:}.nii.gz'.format(name, config_data['output_postfix'])
         save_array_as_nifty_volume(out, config_data['save_root']+'/'+save_name)
 
