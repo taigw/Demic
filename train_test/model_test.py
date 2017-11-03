@@ -31,8 +31,6 @@ def extract_roi_from_nd_volume(volume, roi_center, roi_shape, fill = 'random'):
     r0 = [min(r0max[i], roi_center[i]) for i in range(len(r0max))]
     r1 = [min(r1max[i], input_shape[i] - roi_center[i]) for i in range(len(r0max))]
     out_center = r0max
-    out_idx = (range(out_center[i] - r0[i], out_center[i] + r1[i]) for i in range(len(input_shape)))
-    vol_idx = (range(roi_center[i] - r0[i], roi_center[i] + r1[i]) for i in range(len(input_shape)))
     if(len(roi_center)==3):
         output[np.ix_(range(out_center[0] - r0[0], out_center[0] + r1[0]),
                       range(out_center[1] - r0[1], out_center[1] + r1[1]),
@@ -119,7 +117,7 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
             centerh =  min(centerh, H - roih_half)
             for centerw in range(roiw_half, W + roiw_half, label_shape[2]):
                 centerw =  min(centerw, W - roiw_half)
-                roi_center = [centerd, centerh, centerw, C/2]
+                roi_center = [centerd, centerh, centerw, int(C/2)]
                 sub_image_centers.append(roi_center)
                 sub_image = extract_roi_from_nd_volume(img, roi_center, data_shape, fill = 'random')
                 sub_image_patches.append(sub_image)
