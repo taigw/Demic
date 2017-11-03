@@ -48,7 +48,7 @@ def extract_roi_from_nd_volume(volume, roi_center, roi_shape, fill = 'random'):
         volume[np.ix_(range(roi_center[0] - r0[0], roi_center[0] + r1[0]),
                       range(roi_center[1] - r0[1], roi_center[1] + r1[1]),
                       range(roi_center[2] - r0[2], roi_center[2] + r1[2]),
-                      range(roi_center[3] - r0[3], roi_center[3] + r1[3]),)]
+                      range(roi_center[3] - r0[3], roi_center[3] + r1[3]))]
     else:
         raise ValueError("array dimension should be 3 or 4")
     return output
