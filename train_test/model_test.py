@@ -223,7 +223,7 @@ def model_test(config_file):
     label_source = config_data.get('label_convert_source', None)
     label_target = config_data.get('label_convert_target', None)
     if(not(label_source is None) and not(label_source is None)):
-        assert(len(label_source == len(label_target)))
+        assert(len(label_source) == len(label_target))
     img_num = data_loader.get_image_number()
     print('image number', img_num)
     for i in range(img_num):
