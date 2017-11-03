@@ -134,7 +134,7 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
         
         for batch_idx in range(batch_start_idx, batch_end_idx):
             roi_center = sub_image_centers[batch_idx]
-            roi_center[3] = class_num/2
+            roi_center[3] = int(class_num/2)
             prob = set_roi_to_nd_volume(prob, roi_center, prob_mini_batch[batch_idx-batch_start_idx])
     return prob
 
