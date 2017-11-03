@@ -132,7 +132,8 @@ class ImageDataGenerator(object):
         if(patch_mode == 0): # randomly sample patch with fixed size
             [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
                     image, weight, label)
-        else:                # crop with 3d bounding box and resize within plane
+            stp = self.__get_spatial_transform_parameter(label_slice)
+        elif(patch_mode == 1):      # crop with 3d bounding box and resize within plane
             margin = self.config.get('bounding_box_margin', [5,8,8])
             [min_idx, max_idx] = self.__get_4d_bounding_box(label, margin+[0])
             img_slice    = self.__crop_4d_tensor_with_bounding_box(image, min_idx, max_idx)
@@ -145,8 +146,8 @@ class ImageDataGenerator(object):
             label_slice = tf.image.resize_images(label_slice, new_2d_size, method = 1) # nearest
             [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
                      img_slice, weight_slice, label_slice)
-                
-        return img_slice, weight_slice, label_slice
+        
+        return img_slice, weight_slice, label_slice, stp
     
     def __pad_tensor_to_desired_shape(self, inpt_tensor, outpt_shape):
         """ Pad a tensor to desired shape
@@ -164,19 +165,30 @@ class ImageDataGenerator(object):
         return outpt_tensor
     
     def __get_4d_bounding_box(self, label, margin):
-        """ Crop a volume with the 3D bounding boxe generated from nonzero region of the label
+        """ Get the 4D bounding boxe generated from nonzero region of the label
+            if the nonzero region is null, return the tesor size
             """
         # find bounding box first
+        max_idx = tf.subtract(tf.shape(label), tf.constant([1,1,1,1], tf.int32))
         margin = tf.constant(margin)
         mask = tf.not_equal(label, tf.constant(0, dtype=tf.int32))
         indices = tf.cast(tf.where(mask), tf.int32)
-        indices_min = tf.reduce_min(indices, reduction_indices=[0])
+        indices_min = tf.reduce_min(indices, reduction_indices=[0]) # infinity if indices is null
         indices_min = tf.subtract(indices_min, margin)
         indices_min = tf.maximum(indices_min, tf.constant([0,0,0,0], tf.int32))
+        indices_min = tf.minimum(indices_min, max_idx)
         
-        indices_max = tf.reduce_max(indices, reduction_indices=[0])
+        indices_max = tf.reduce_max(indices, reduction_indices=[0]) # minus infinity if indces is null
         indices_max = tf.add(indices_max, margin)
         indices_max = tf.minimum(indices_max, tf.subtract(tf.shape(label), tf.constant([1,1,1,1], tf.int32)))
+        indices_max = tf.maximum(indices_max, tf.constant([0,0,0,0]))
+        
+        # in case the nonzero region is null, switch the indices_min and indices_max
+        indices_sum = tf.add(indices_min, indices_max)
+        indices_sub = tf.subtract(indices_min, indices_max)
+        indices_abs = tf.abs(indices_sub)
+        indices_min = tf.div(tf.subtract(indices_sum, indices_abs), tf.constant([2,2,2,2]))
+        indices_max = tf.div(tf.add(indices_sum, indices_abs), tf.constant([2,2,2,2]))
         return [indices_min, indices_max]
     
     def __crop_4d_tensor_with_bounding_box(self, input_tensor, idx_min, idx_max):
@@ -219,7 +231,40 @@ class ImageDataGenerator(object):
         label_slice  = tf.slice(label, lab_begin, label_shape_out)
         return [img_slice, weight_slice, label_slice]
     
+    def __get_spatial_transform_parameter(self, label):
+        """Compute the parameters for spatial transformer (affine)
+            [sh,  0, dh]
+            [ 0, sw, dw]
+        """
+        img_size         = tf.cast(tf.shape(label), tf.float32)
+        img_size_minus_1 = tf.subtract(img_size, tf.constant([1, 1, 1, 1], tf.float32))
+        img_size         = tf.slice(img_size, tf.constant([1]), tf.constant([2]))
+        img_size_minus_1 = tf.slice(img_size_minus_1, tf.constant([1]), tf.constant([2]))
 
+        margin = self.config.get('bounding_box_margin', [5,8,8])
+        [indices_min, indices_max] = self.__get_4d_bounding_box(label, margin + [0])
+        indices_min = tf.slice(indices_min, tf.constant([1]), tf.constant([2]))
+        indices_max = tf.slice(indices_max, tf.constant([1]), tf.constant([2]))
+        indices_center = tf.add(indices_min, indices_max)
+        indices_center = tf.multiply(tf.cast(indices_center, tf.float32),
+                                     tf.constant([0.5, 0.5], tf.float32))
+        indices_center = tf.divide(indices_center, img_size_minus_1)
+        offset = tf.multiply(indices_center, tf.constant([2.0, 2.0], tf.float32))
+        offset = tf.subtract(offset, tf.constant([1.0, 1.0], tf.float32))
+        offset = tf.expand_dims(offset, 0)
+        offset = tf.transpose(offset)
+        
+        roi_size = tf.cast(tf.subtract(indices_max, indices_min), tf.float32)
+        roi_size = tf.add(roi_size, tf.constant([1.0,1.0], tf.float32))
+        scale = tf.divide(roi_size, img_size)
+
+        scale_h = tf.multiply(scale, tf.constant([1.0, 0.0], tf.float32))
+        scale_w = tf.multiply(scale, tf.constant([0.0, 1.0], tf.float32))
+        rotate = tf.stack([scale_h, scale_w])
+
+        param = tf.concat([rotate, offset], 1)
+        return param
+        
     def _parse_function_train(self, filename, label):
         """Input parser for samples of the training set."""
         # convert label number into one-hot-encoding
