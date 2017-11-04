@@ -34,6 +34,9 @@ net_type = UNet2D
 # name of network
 net_name = unet2d
 
+# bn_training, True: use batch mean False: use moving mean
+bn_training = False
+
 # input patch shape e.g, [D, H, W, C]
 data_shape = [50, 144, 130, 4]
 

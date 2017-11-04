@@ -48,7 +48,7 @@ def model_train(config_file):
                     w_regularizer = w_regularizer,
                     b_regularizer = b_regularizer,
                     name = net_name)
-    predicty = net(x, is_training = True)
+    predicty = net(x, is_training = config_net['bn_training'])
     print('network output shape ', predicty.shape)
 
     # define loss function and optimization method
