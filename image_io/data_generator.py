@@ -147,7 +147,7 @@ class ImageDataGenerator(object):
             [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
                      img_slice, weight_slice, label_slice)
         
-        return img_slice, weight_slice, label_slice, stp
+        return img_slice, weight_slice, label_slice
     
     def __pad_tensor_to_desired_shape(self, inpt_tensor, outpt_shape):
         """ Pad a tensor to desired shape
