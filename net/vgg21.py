@@ -4,11 +4,12 @@ import tensorflow as tf
 from niftynet.layer import layer_util
 from niftynet.layer.base_layer import TrainableLayer
 from niftynet.layer.convolution import ConvolutionalLayer
+from niftynet.layer.downsample import DownSampleLayer
 from niftynet.layer.elementwise import ElementwiseLayer
 
 from niftynet.utilities.util_common import look_up_operations
 
-class PNet(TrainableLayer):
+class VGG21(TrainableLayer):
     """
         Reimplementation of P-Net
         Ronneberger, Olaf, Philipp Fischer, and Thomas Brox. "U-net: Convolutional networks for biomedical image segmentation." MICCAI 2015
@@ -22,11 +23,11 @@ class PNet(TrainableLayer):
                  b_initializer=None,
                  b_regularizer=None,
                  acti_func='prelu',
-                 name='PNet'):
-        super(PNet, self).__init__(name=name)
+                 name='VGG21'):
+        super(VGG21, self).__init__(name=name)
         
-        self.n_features = [64, 64, 64, 64, 64]
-        self.dilations  = [1, 2, 3, 4, 5]
+        self.n_features = [64, 64, 64, 128, 128, 128, 128]
+        self.dilations  = [1, 1, 1, 1, 1, 1]
         self.moving_decay = 0.5
         self.acti_func = acti_func
         self.num_classes = num_classes
@@ -37,7 +38,7 @@ class PNet(TrainableLayer):
         print('using {}'.format(name))
     
     def layer_op(self, images, is_training, layer_id=-1):
-        block1 = PNetBlock((self.n_features[0], self.n_features[0]),
+        block1 = VGGBlock((self.n_features[0], self.n_features[0]),
                             (self.dilations[0], self.dilations[0]),
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
@@ -45,71 +46,82 @@ class PNet(TrainableLayer):
                             acti_func=self.acti_func,
                             name='B1')
                             
-        block2 = PNetBlock((self.n_features[1], self.n_features[1]),
+        block2 = VGGBlock((self.n_features[1], self.n_features[1]),
                             (self.dilations[1], self.dilations[1]),
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
                             moving_decay = self.moving_decay,
                             acti_func=self.acti_func,
                             name='B2')
-                            
-        block3 = PNetBlock((self.n_features[2],self.n_features[2],self.n_features[2]),
-                           ( self.dilations[2], self.dilations[2], self.dilations[2]),
-                            w_initializer=self.initializers['w'],
-                            w_regularizer=self.regularizers['w'],
-                            moving_decay = self.moving_decay,
-                            acti_func=self.acti_func,
-                            name='B3')
-                            
-        block4 = PNetBlock((self.n_features[3],self.n_features[3],self.n_features[3]),
-                           ( self.dilations[3], self.dilations[3], self.dilations[3]),
+
+        block3 = VGGBlock((self.n_features[2], self.n_features[2]),
+                           (self.dilations[2], self.dilations[2]),
+                           w_initializer=self.initializers['w'],
+                           w_regularizer=self.regularizers['w'],
+                           moving_decay = self.moving_decay,
+                           acti_func=self.acti_func,
+                           name='B3')
+    
+        block4 = VGGBlock((self.n_features[3],self.n_features[3],self.n_features[3],self.n_features[3]),
+                           ( self.dilations[3], self.dilations[3], self.dilations[3], self.dilations[3]),
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
                             moving_decay = self.moving_decay,
                             acti_func=self.acti_func,
                             name='B4')
                             
-        block5 = PNetBlock((self.n_features[4],self.n_features[4],self.n_features[4]),
-                           ( self.dilations[4], self.dilations[4], self.dilations[4]),
+        block5 = VGGBlock((self.n_features[4],self.n_features[4],self.n_features[4],self.n_features[4]),
+                           ( self.dilations[4], self.dilations[4], self.dilations[4], self.dilations[4]),
+                            w_initializer=self.initializers['w'],
+                            w_regularizer=self.regularizers['w'],
+                            moving_decay = self.moving_decay,
+                            acti_func=self.acti_func,
+                            name='B5')
+                            
+        block6 = VGGBlock((self.n_features[5],self.n_features[5],self.n_features[5],self.n_features[5]),
+                           ( self.dilations[5], self.dilations[5], self.dilations[5], self.dilations[5]),
                            w_initializer=self.initializers['w'],
                            w_regularizer=self.regularizers['w'],
                            moving_decay = self.moving_decay,
                            acti_func=self.acti_func,
-                           name='B5')
+                           name='B6')
         
-        conv6_1 = ConvolutionalLayer(n_output_chns=self.n_features[0],
-                                     kernel_size=[1,3,3],
+        fc1 = ConvolutionalLayer(n_output_chns=self.n_features[6],
+                                     kernel_size=[1,6,6],
                                      w_initializer=self.initializers['w'],
                                      w_regularizer=self.regularizers['w'],
                                      moving_decay = self.moving_decay,
                                      acti_func=self.acti_func,
-                                     name='conv6_1')
+                                     name='fc_1')
                                      
-        conv6_2 = ConvolutionalLayer(n_output_chns=self.num_classes,
-                                  kernel_size=[1,3,3],
-                                  w_initializer=self.initializers['w'],
-                                  w_regularizer=self.regularizers['w'],
-                                  moving_decay = self.moving_decay,
-                                  acti_func=self.acti_func,
-                                  name='conv6_2')
-                                  
-        f1 = block1(images, is_training)
-        f2 = block2(f1, is_training)
-        f3 = block3(f2, is_training)
-        f4 = block4(f3, is_training)
-        f5 = block5(f4, is_training)
-        
-        fcat = tf.concat((f1, f2, f3, f4, f5), axis = -1)
-        f6 = tf.nn.dropout(fcat, 0.8)
-        f6 = conv6_1(f6, is_training)
-        f6 = tf.nn.dropout(f6, 0.8)
-        f6 = conv6_2(f6, is_training)
-        
-        output = f6
-        return output
+        fc2 = ConvolutionalLayer(n_output_chns=self.n_features[6],
+                              kernel_size=[1,1,1],
+                              w_initializer=self.initializers['w'],
+                              w_regularizer=self.regularizers['w'],
+                              moving_decay = self.moving_decay,
+                              acti_func=self.acti_func,
+                              name='fc_2')
+
+        fc3 = ConvLayer(n_output_chns=num_classes,
+                                 kernel_size=[1,1,1],
+                                 w_initializer=self.initializers['w'],
+                                 w_regularizer=self.regularizers['w'],
+                                 with_bias = True,
+                                 name='fc_3')
+    
+        out = block1(images, is_training)
+        out = block2(out, is_training)
+        out = block3(out, is_training)
+        out = block4(out, is_training)
+        out = block5(out, is_training)
+        out = block6(out, is_training)
+        out = fc1(out, is_training)
+        out = fc2(out, is_training)
+        out = fc3(out)
+        return out
 
 
-class PNetBlock(TrainableLayer):
+class VGGBlock(TrainableLayer):
     def __init__(self,
                  n_chns,
                  dilations,
@@ -117,9 +129,9 @@ class PNetBlock(TrainableLayer):
                  w_regularizer=None,
                  moving_decay=0.9,
                  acti_func='relu',
-                 name='PNet_block'):
+                 name='VGGNet_block'):
         
-        super(PNetBlock, self).__init__(name=name)
+        super(VGGBlock, self).__init__(name=name)
         
         self.n_chns = n_chns
         self.dilations = dilations
@@ -136,9 +148,11 @@ class PNetBlock(TrainableLayer):
                                          dilation =[1, dilation, dilation],
                                          w_initializer=self.initializers['w'],
                                          w_regularizer=self.regularizers['w'],
-                                         moving_decay=self.moving_decay,
+                                         moving_decay self.moving_decay,
                                          acti_func=self.acti_func,
                                          name='{}'.format(dilation))
+            pool_op = DownSampleLayer('MAX', kernel_size = 2, stride = 2)
             output_tensor = conv_op(output_tensor, is_training)
+            output_tensor = pool_op(output_tensor)
     
         return output_tensor
