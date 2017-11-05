@@ -27,7 +27,7 @@ class PNet(TrainableLayer):
         
         self.n_features = [64, 64, 64, 64, 64]
         self.dilations  = [1, 2, 3, 4, 5]
-        self.moving_decay = 0.8
+        self.moving_decay = 0.5
         self.acti_func = acti_func
         self.num_classes = num_classes
         
