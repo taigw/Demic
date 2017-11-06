@@ -146,10 +146,8 @@ class RegressionTrainAgent(TrainAgent):
     
     def get_input_output_feed_dict(self):
         [x_batch, y_batch] = self.sess.run(self.next_batch)
-        print(y_batch)
         feed_dict = {self.x:x_batch, self.y:y_batch}
         return feed_dict
-
 
 def model_train(config_file):
     config = parse_config(config_file)

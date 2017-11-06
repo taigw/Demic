@@ -1,29 +1,40 @@
 [data]
 # list of folders that contain images
-data_root = [/Users/guotaiwang/Documents/data/FetalBrain/Train]
+# (required, list of strings)
+data_root = [/Users/guotaiwang/Documents/data/FetalBrain/Data_iso_cropz]
 
 # list of image name postfix, each is seen as one modality
+# (required, list of strings)
 modality_postfix = [Image]
 
-# post fix of label files
+# whether annotations are loaded or not
+# (required, bool)
+with_ground_truth = True
+ 
+# post fix of label files, required if with_ground_truth is True
+# (optional, string)
 label_postfix = Label
 
 # postfix of images
+# (required, string)
 file_post_fix = nii.gz
 
 # an optional .txt file containing the filenames in data_root
+# (optional, string)
 data_names = config/file_names/train_names_all.txt 
 
-# only data_subset images loaded, all images if data_num is None
+# only data_subset images loaded, all images if data_num is None e.g.,[0,10]
+# (optional, list of integers)
 data_subset =  [0,10]
 
 # a threshold value to get the mask for intensity normalisation and computing weight
+# (optional, float)
 mask_threshold = 0
 
-with_ground_truth = True
-
-# a list to flag whether each modality should be normalised, based on image level 
+# a list to flag whether each modality should be normalised, based on image level
+# (required, list of bool)
 intensity_normalize = [True]
 
 # the output filename
+# (required, string)
 tfrecords_filename = data/bf_img.tfrecords
