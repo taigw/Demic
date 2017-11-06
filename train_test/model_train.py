@@ -48,7 +48,8 @@ def model_train(config_file):
                     w_regularizer = w_regularizer,
                     b_regularizer = b_regularizer,
                     name = net_name)
-    predicty = net(x, is_training = config_net['bn_training'])
+    bn_momentum = tf.placeholder(tf.float32, shape = [])
+    predicty = net(x, is_training = config_net['bn_training'], bn_momentum=bn_momentum)
     print('network output shape ', predicty.shape)
 
     # define loss function and optimization method
@@ -86,13 +87,16 @@ def model_train(config_file):
     for epoch in range(start_epoch, maximal_epoch):
         # Initialize iterator with the training dataset
         sess.run(training_init_op)
+        temp_momentum = float(epoch)/float(maximal_epoch)
         for step in range(train_batches_per_epoch):
             [img_batch, weight_batch, label_batch] = sess.run(next_batch)
-            opt_step.run(session = sess, feed_dict={x:img_batch, w: weight_batch, y:label_batch})
+            opt_step.run(session = sess, feed_dict={x:img_batch, w: weight_batch, y:label_batch,
+                         bn_momentum:temp_momentum})
         batch_loss_list = []
         for test_step in range(test_steps):
             [img_batch, weight_batch, label_batch] = sess.run(next_batch)
-            loss_v = loss.eval(feed_dict ={x:img_batch, w:weight_batch, y:label_batch})
+            loss_v = loss.eval(feed_dict ={x:img_batch, w:weight_batch, y:label_batch,
+                               bn_momentum:temp_momentum})
             batch_loss_list.append(loss_v)
         batch_loss = np.asarray(batch_loss_list, np.float32).mean()
         print("{0:} Epoch {1:}, loss {2:}".format(datetime.now(), epoch+1, batch_loss))
