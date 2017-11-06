@@ -197,7 +197,7 @@ class TestAgent:
 
         # construct graph
         x = tf.placeholder(tf.float32, shape = full_data_shape)
-        predicty = self.net(x, is_training = False)
+        predicty = self.net(x, is_training = False, bn_momentum = 1.0)
         print('network output shape ', predicty)
         proby = tf.nn.softmax(predicty)
 
