@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function
 import tensorflow as tf
 from niftynet.layer import layer_util
 from niftynet.layer.base_layer import TrainableLayer
-from niftynet.layer.convolution import ConvolutionalLayer
+from niftynet.layer.convolution import ConvLayer, ConvolutionalLayer
 from niftynet.layer.downsample import DownSampleLayer
 from niftynet.layer.elementwise import ElementwiseLayer
 
@@ -37,7 +37,7 @@ class VGG21(TrainableLayer):
         
         print('using {}'.format(name))
     
-    def layer_op(self, images, is_training, layer_id=-1):
+    def layer_op(self, images, is_training, bn_momentum=0.9, layer_id=-1):
         block1 = VGGBlock((self.n_features[0], self.n_features[0]),
                             (self.dilations[0], self.dilations[0]),
                             w_initializer=self.initializers['w'],
@@ -102,21 +102,21 @@ class VGG21(TrainableLayer):
                               acti_func=self.acti_func,
                               name='fc_2')
 
-        fc3 = ConvLayer(n_output_chns=num_classes,
+        fc3 = ConvLayer(n_output_chns=self.num_classes,
                                  kernel_size=[1,1,1],
                                  w_initializer=self.initializers['w'],
                                  w_regularizer=self.regularizers['w'],
                                  with_bias = True,
                                  name='fc_3')
     
-        out = block1(images, is_training)
-        out = block2(out, is_training)
-        out = block3(out, is_training)
-        out = block4(out, is_training)
-        out = block5(out, is_training)
-        out = block6(out, is_training)
-        out = fc1(out, is_training)
-        out = fc2(out, is_training)
+        out = block1(images, is_training, bn_momentum)
+        out = block2(out, is_training, bn_momentum)
+        out = block3(out, is_training, bn_momentum)
+        out = block4(out, is_training, bn_momentum)
+        out = block5(out, is_training, bn_momentum)
+        out = block6(out, is_training, bn_momentum)
+        out = fc1(out, is_training, bn_momentum)
+        out = fc2(out, is_training, bn_momentum)
         out = fc3(out)
         return out
 
@@ -140,7 +140,7 @@ class VGGBlock(TrainableLayer):
         self.initializers = {'w': w_initializer}
         self.regularizers = {'w': w_regularizer}
     
-    def layer_op(self, input_tensor, is_training):
+    def layer_op(self, input_tensor, is_training, bn_momentum=0.9):
         output_tensor = input_tensor
         for (n_chn, dilation) in zip(self.n_chns, self.dilations):
             conv_op = ConvolutionalLayer(n_output_chns=n_chn,
@@ -148,11 +148,11 @@ class VGGBlock(TrainableLayer):
                                          dilation =[1, dilation, dilation],
                                          w_initializer=self.initializers['w'],
                                          w_regularizer=self.regularizers['w'],
-                                         moving_decay self.moving_decay,
+                                         moving_decay=self.moving_decay,
                                          acti_func=self.acti_func,
                                          name='{}'.format(dilation))
             pool_op = DownSampleLayer('MAX', kernel_size = 2, stride = 2)
-            output_tensor = conv_op(output_tensor, is_training)
+            output_tensor = conv_op(output_tensor, is_training, bn_momentum)
             output_tensor = pool_op(output_tensor)
     
         return output_tensor

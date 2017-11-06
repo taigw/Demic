@@ -36,7 +36,7 @@ class PNet(TrainableLayer):
         
         print('using {}'.format(name))
     
-    def layer_op(self, images, is_training, bn_momentum, layer_id=-1):
+    def layer_op(self, images, is_training, bn_momentum=0.9, layer_id=-1):
         block1 = PNetBlock((self.n_features[0], self.n_features[0]),
                             (self.dilations[0], self.dilations[0]),
                             w_initializer=self.initializers['w'],

@@ -5,6 +5,7 @@
 
 import os
 import sys
+from scipy import ndimage
 import numpy as np
 import nibabel
 import tensorflow as tf
@@ -23,13 +24,15 @@ def search_file_in_folder_list(folder_list, file_name):
         raise ValueError('file not exist: {0:}'.format(file_name))
     return full_file_name
 
-def itensity_normalize_one_volume(volume, threshold):
-    pixels = volume[volume > threshold]
+def itensity_normalize_one_volume(volume, mask = None):
+    if(mask is None):
+        mask = volume > 0
+    pixels = volume[mask]
     mean = pixels.mean()
     std  = pixels.std()
     out = (volume - mean)/std
     out_random = np.random.normal(0, 1, size = volume.shape)
-    out[volume <= threshold] = out_random[volume <=threshold]
+    out[mask] = out_random[mask]
     return out
 
 class DataLoader():
@@ -98,14 +101,16 @@ class DataLoader():
                 volume_name = search_file_in_folder_list(self.data_root, volume_name_short)
                 volume = load_nifty_volume_as_array(volume_name)
                 if(mod_idx == 0):
-                    weight = np.asarray(volume > self.mask_threshold, np.float32)
+                    s = ndimage.generate_binary_structure(3,3)
+                    weight = volume > self.mask_threshold
+                    weight = ndimage.morphology.binary_closing(weight,s)
                 if(self.intensity_normalize[mod_idx]):
-                    volume = itensity_normalize_one_volume(volume, self.mask_threshold)
+                    volume = itensity_normalize_one_volume(volume, weight)
                 volume_list.append(volume)
             volume_array = np.asarray(volume_list)
             volume_array = np.transpose(volume_array, [1, 2, 3, 0]) # [D, H, W, C]
             X.append(volume_array)
-            w_array = np.asarray([weight])
+            w_array = np.asarray([weight], np.float32)
             w_array = np.transpose(w_array, [1, 2, 3, 0]) # [D, H, W, C]
             W.append(w_array)
             if(self.with_ground_truth):

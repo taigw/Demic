@@ -129,11 +129,13 @@ class ImageDataGenerator(object):
         
         # extract image patch
         patch_mode = self.config.get('patch_mode', 0)
-        if(patch_mode == 0): # randomly sample patch with fixed size
+        if(patch_mode == 0):
+            # randomly sample patch with fixed size
             [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
                     image, weight, label)
-            stp = self.__get_spatial_transform_parameter(label_slice)
-        elif(patch_mode == 1):      # crop with 3d bounding box and resize within plane
+            return img_slice, weight_slice, label_slice
+        elif(patch_mode == 1):
+            # Sampling with bounding box, crop with 3d bounding box and resize to given size within plane
             margin = self.config.get('bounding_box_margin', [5,8,8])
             [min_idx, max_idx] = self.__get_4d_bounding_box(label, margin+[0])
             img_slice    = self.__crop_4d_tensor_with_bounding_box(image, min_idx, max_idx)
@@ -146,8 +148,19 @@ class ImageDataGenerator(object):
             label_slice = tf.image.resize_images(label_slice, new_2d_size, method = 1) # nearest
             [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
                      img_slice, weight_slice, label_slice)
-        
-        return img_slice, weight_slice, label_slice
+            return img_slice, weight_slice, label_slice
+        elif(patch_mode == 2):
+            # For bounding box regression, resize 2d images to given size, and get spatial transformer parameters
+            new_2d_size = tf.constant(self.config['data_shape'][1:3])
+            img_slice   = tf.image.resize_images(image, new_2d_size, method = 0) # bilinear
+            weight_slice= tf.image.resize_images(weight,new_2d_size, method = 0) # bilinear
+            label_slice = tf.image.resize_images(label, new_2d_size, method = 1) # nearest
+            [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
+                    img_slice, weight_slice, label_slice)
+            stp = self.__get_spatial_transform_parameter(label_slice)
+            return img_slice, stp
+        else:
+            raise ValueError('unsupported patch mode {0:}'.format(patch_mode))
     
     def __pad_tensor_to_desired_shape(self, inpt_tensor, outpt_shape):
         """ Pad a tensor to desired shape
