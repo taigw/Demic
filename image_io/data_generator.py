@@ -136,7 +136,7 @@ class ImageDataGenerator(object):
             return img_slice, weight_slice, label_slice
         elif(patch_mode == 1):
             # Sampling with bounding box, crop with 3d bounding box and resize to given size within plane
-            margin = self.config.get('bounding_box_margin', [5,8,8])
+            margin = self.config.get('bounding_box_margin', [0,0,0])
             [min_idx, max_idx] = self.__get_4d_bounding_box(label, margin+[0])
             img_slice    = self.__crop_4d_tensor_with_bounding_box(image, min_idx, max_idx)
             weight_slice = self.__crop_4d_tensor_with_bounding_box(weight, min_idx, max_idx)
@@ -255,7 +255,7 @@ class ImageDataGenerator(object):
         img_size         = tf.slice(img_size, tf.constant([1]), tf.constant([2]))
         img_size_minus_1 = tf.slice(img_size_minus_1, tf.constant([1]), tf.constant([2]))
 
-        margin = self.config.get('bounding_box_margin', [5,8,8])
+        margin = self.config.get('bounding_box_margin', [0,0,0])
         [indices_min, indices_max] = self.__get_4d_bounding_box(label, margin + [0])
         indices_min = tf.slice(indices_min, tf.constant([1]), tf.constant([2]))
         indices_max = tf.slice(indices_max, tf.constant([1]), tf.constant([2]))
