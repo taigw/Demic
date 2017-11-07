@@ -31,7 +31,9 @@ class TrainAgent(object):
     def construct_network(self):
         batch_size  = self.config_data.get('batch_size', 5)
         self.full_data_shape = [batch_size] + self.config_net['data_shape']
+        self.full_weight_shape = [batch_size] + self.config_net['weight_shape']
         self.full_out_shape  = [batch_size] + self.config_net['out_shape']
+        self.full_weight_shape[-1] = 1
         self.x = tf.placeholder(tf.float32, shape = self.full_data_shape)
         self.m = tf.placeholder(tf.float32, shape = []) # momentum for batch normalization
         self.get_output_and_loss()
@@ -97,10 +99,8 @@ class SegmentationTrainAgent(TrainAgent):
     def get_output_and_loss(self):
         self.class_num = self.config_net['class_num']
         loss_func = SegmentationLoss(n_class=self.class_num)
-        
-        full_weight_shape = [i for i in self.full_data_shape]
-        full_weight_shape[-1] = 1
-        self.w = tf.placeholder(tf.float32, shape = full_weight_shape)
+
+        self.w = tf.placeholder(tf.float32, shape = self.full_weight_shape)
         self.y = tf.placeholder(tf.int32, shape = self.full_out_shape)
         
         w_regularizer = regularizers.l2_regularizer(self.config_train.get('decay', 1e-7))
@@ -127,7 +127,6 @@ class RegressionTrainAgent(TrainAgent):
     
     def get_output_and_loss(self):
         loss_func = RegressionLoss()
-        
         self.y = tf.placeholder(tf.float32, shape = self.full_out_shape)
         
         w_regularizer = regularizers.l2_regularizer(self.config_train.get('decay', 1e-7))
