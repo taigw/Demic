@@ -111,7 +111,6 @@ class UNet2D(TrainableLayer):
                                kernel_size=(1,1,1),
                                w_initializer=self.initializers['w'],
                                w_regularizer=self.regularizers['w'],
-                               acti_func=self.acti_func,
                                with_bias = True,
                                name='conv')
         down1 = DownSampleLayer('MAX', kernel_size=(1,2,2), stride=(1,2,2), name='down1')
