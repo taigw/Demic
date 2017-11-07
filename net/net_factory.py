@@ -5,7 +5,7 @@ import os
 import sys
 from net.unet2d import UNet2D
 from net.pnet import PNet
-from net.pnet_ms import PNet_Multi_Slice
+from net.pnet_multi_slice import PNet_Multi_Slice
 from net.vgg21 import VGG21
 class NetFactory(object):
     @staticmethod
