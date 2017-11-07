@@ -63,7 +63,7 @@ class ImageDataGenerator(object):
         assert(len(data_shape) == 4 and len(weight_shape) == 4 and len(label_shape) == 4)
         label_margin = []
         for i in range(3):
-            assert(data_shape[i] == weight_shape[i])
+            assert(label_shape[i] == weight_shape[i])
             assert(data_shape[i] >= label_shape[i])
             margin = (data_shape[i] - label_shape[i]) % 2
             assert( margin == 0)
