@@ -40,5 +40,5 @@ class PNet_Multi_Slice(TrainableLayer):
                           name = 'pnet_layer')
         # transpose the input from [N, D, H, W, 1] to [N, 1, H, W, D]
         output = tf.transpose(images, perm=[0,4,2,3,1])
-        output = pnet_layer(out, is_training, bn_momentum)
+        output = pnet_layer(output, is_training, bn_momentum)
         return output
