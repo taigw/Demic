@@ -27,7 +27,6 @@ class PNet(TrainableLayer):
         
         self.n_features = [64, 64, 64, 64, 64]
         self.dilations  = [1, 2, 3, 4, 5]
-        self.moving_decay = 0.5
         self.acti_func = acti_func
         self.num_classes = num_classes
         
@@ -41,7 +40,6 @@ class PNet(TrainableLayer):
                             (self.dilations[0], self.dilations[0]),
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
-                            moving_decay = self.moving_decay,
                             acti_func=self.acti_func,
                             name='B1')
                             
@@ -49,7 +47,6 @@ class PNet(TrainableLayer):
                             (self.dilations[1], self.dilations[1]),
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
-                            moving_decay = self.moving_decay,
                             acti_func=self.acti_func,
                             name='B2')
                             
@@ -57,7 +54,6 @@ class PNet(TrainableLayer):
                            ( self.dilations[2], self.dilations[2], self.dilations[2]),
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
-                            moving_decay = self.moving_decay,
                             acti_func=self.acti_func,
                             name='B3')
                             
@@ -65,7 +61,6 @@ class PNet(TrainableLayer):
                            ( self.dilations[3], self.dilations[3], self.dilations[3]),
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
-                            moving_decay = self.moving_decay,
                             acti_func=self.acti_func,
                             name='B4')
                             
@@ -73,7 +68,6 @@ class PNet(TrainableLayer):
                            ( self.dilations[4], self.dilations[4], self.dilations[4]),
                            w_initializer=self.initializers['w'],
                            w_regularizer=self.regularizers['w'],
-                           moving_decay = self.moving_decay,
                            acti_func=self.acti_func,
                            name='B5')
         
@@ -81,15 +75,12 @@ class PNet(TrainableLayer):
                                      kernel_size=[1,3,3],
                                      w_initializer=self.initializers['w'],
                                      w_regularizer=self.regularizers['w'],
-                                     moving_decay = self.moving_decay,
-                                     acti_func=self.acti_func,
                                      name='conv6_1')
                                      
         conv6_2 = ConvolutionalLayer(n_output_chns=self.num_classes,
                                   kernel_size=[1,3,3],
                                   w_initializer=self.initializers['w'],
                                   w_regularizer=self.regularizers['w'],
-                                  moving_decay = self.moving_decay,
                                   acti_func=self.acti_func,
                                   name='conv6_2')
                                   
@@ -115,7 +106,6 @@ class PNetBlock(TrainableLayer):
                  dilations,
                  w_initializer=None,
                  w_regularizer=None,
-                 moving_decay=0.9,
                  acti_func='relu',
                  name='PNet_block'):
         
@@ -124,7 +114,6 @@ class PNetBlock(TrainableLayer):
         self.n_chns = n_chns
         self.dilations = dilations
         self.acti_func = acti_func
-        self.moving_decay = moving_decay
         self.initializers = {'w': w_initializer}
         self.regularizers = {'w': w_regularizer}
     
@@ -136,7 +125,6 @@ class PNetBlock(TrainableLayer):
                                          dilation =[1, dilation, dilation],
                                          w_initializer=self.initializers['w'],
                                          w_regularizer=self.regularizers['w'],
-                                         moving_decay=self.moving_decay,
                                          acti_func=self.acti_func,
                                          name='{}'.format(dilation))
             output_tensor = conv_op(output_tensor, is_training, bn_momentum)
