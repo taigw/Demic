@@ -164,6 +164,7 @@ class ImageDataGenerator(object):
     
     def __pad_tensor_to_desired_shape(self, inpt_tensor, outpt_shape):
         """ Pad a tensor to desired shape
+            if the input size is larger than output shape, then reture then input tensor
         """
         inpt_shape = tf.shape(inpt_tensor)
         shape_sub = tf.subtract(inpt_shape, outpt_shape)
@@ -174,7 +175,7 @@ class ImageDataGenerator(object):
         pad = tf.scalar_mul(tf.constant(0.5), tf.cast(pad, tf.float32))
         pad = tf.cast(pad, tf.int32)
         pad_lr = tf.stack([pad, pad], axis = 1)
-        outpt_tensor = tf.pad(inpt_tensor, pad_lr)
+        outpt_tensor = tf.pad(inpt_tensor, pad_lr, mode = "REFLECT")
         return outpt_tensor
     
     def __get_4d_bounding_box(self, label, margin):
