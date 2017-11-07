@@ -163,7 +163,7 @@ def model_train(config_file):
 if __name__ == '__main__':
     if(len(sys.argv) != 2):
         print('Number of arguments should be 2. e.g.')
-        print('    python model_train.py config.txt')
+        print('    python train_test/model_train.py config.txt')
         exit()
     config_file = str(sys.argv[1])
     assert(os.path.isfile(config_file))
