@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function
 import tensorflow as tf
 from niftynet.layer import layer_util
 from niftynet.layer.base_layer import TrainableLayer
-from niftynet.layer.convolution import ConvolutionalLayer
+from niftynet.layer.convolution import ConvLayer, ConvolutionalLayer
 from niftynet.layer.deconvolution import DeconvolutionalLayer
 from niftynet.layer.downsample import DownSampleLayer
 from niftynet.layer.elementwise import ElementwiseLayer
@@ -24,7 +24,7 @@ class UNet2D(TrainableLayer):
                  b_initializer=None,
                  b_regularizer=None,
                  acti_func='prelu',
-                 name='UNet'):
+                 name='UNet2D'):
         super(UNet2D, self).__init__(name=name)
         
 #        self.n_features = [64, 128, 256, 512, 1024]
@@ -38,7 +38,7 @@ class UNet2D(TrainableLayer):
         
         print('using {}'.format(name))
     
-    def layer_op(self, images, is_training, layer_id=-1):
+    def layer_op(self, images, is_training, bn_momentum=0.9, layer_id=-1):
         # image_size  should be divisible by 8
         spatial_dims = images.get_shape()[1:-1].as_list()
         assert (spatial_dims[-2] % 16 == 0 )
@@ -107,11 +107,12 @@ class UNet2D(TrainableLayer):
                          acti_func=self.acti_func,
                          name='B9')
                          
-        conv = ConvolutionalLayer(n_output_chns=self.num_classes,
+        conv = ConvLayer(n_output_chns=self.num_classes,
                                kernel_size=(1,1,1),
                                w_initializer=self.initializers['w'],
                                w_regularizer=self.regularizers['w'],
                                acti_func=self.acti_func,
+                               with_bias = True,
                                name='conv')
         down1 = DownSampleLayer('MAX', kernel_size=(1,2,2), stride=(1,2,2), name='down1')
         down2 = DownSampleLayer('MAX', kernel_size=(1,2,2), stride=(1,2,2), name='down2')
@@ -123,32 +124,32 @@ class UNet2D(TrainableLayer):
         up3 = DeconvolutionalLayer(n_output_chns=self.n_features[1], kernel_size=(1,2,2), stride=(1,2,2), name='up3')
         up4 = DeconvolutionalLayer(n_output_chns=self.n_features[0], kernel_size=(1,2,2), stride=(1,2,2), name='up4')
         
-        f1 = block1(images, is_training)
+        f1 = block1(images, is_training, bn_momentum)
         d1 = down1(f1)
-        f2 = block2(d1, is_training)
+        f2 = block2(d1, is_training, bn_momentum)
         d2 = down2(f2)
-        f3 = block3(d2, is_training)
+        f3 = block3(d2, is_training, bn_momentum)
         d3 = down3(f3)
-        f4 = block4(d3, is_training)
+        f4 = block4(d3, is_training, bn_momentum)
         d4 = down4(f4)
-        f5 = block5(d4, is_training)
+        f5 = block5(d4, is_training, bn_momentum)
         
-        f5up = up1(f5, is_training)
+        f5up = up1(f5, is_training, bn_momentum)
         f4cat = tf.concat((f4, f5up), axis = -1)
-        f6 = block6(f4cat, is_training)
+        f6 = block6(f4cat, is_training, bn_momentum)
         
-        f6up = up2(f6, is_training)
+        f6up = up2(f6, is_training, bn_momentum)
         f3cat = tf.concat((f3, f6up), axis = -1)
-        f7 = block7(f3cat, is_training)
+        f7 = block7(f3cat, is_training, bn_momentum)
 
-        f7up = up3(f7, is_training)
+        f7up = up3(f7, is_training, bn_momentum)
         f2cat = tf.concat((f2, f7up), axis = -1)
-        f8 = block8(f2cat, is_training)
+        f8 = block8(f2cat, is_training, bn_momentum)
         
-        f8up = up4(f8, is_training)
+        f8up = up4(f8, is_training, bn_momentum)
         f1cat = tf.concat((f1, f8up), axis = -1)
-        f9 = block9(f1cat, is_training)
-        output = conv(f9, is_training)
+        f9 = block9(f1cat, is_training, bn_momentum)
+        output = conv(f9)
 
         return output
 
@@ -174,7 +175,7 @@ class UNetBlock(TrainableLayer):
         self.initializers = {'w': w_initializer}
         self.regularizers = {'w': w_regularizer}
     
-    def layer_op(self, input_tensor, is_training):
+    def layer_op(self, input_tensor, is_training, bn_momentum = 0.9):
         output_tensor = input_tensor
         for (kernel_size, n_features) in zip(self.kernels, self.n_chns):
             conv_op = ConvolutionalLayer(n_output_chns=n_features,
@@ -183,6 +184,6 @@ class UNetBlock(TrainableLayer):
                                          w_regularizer=self.regularizers['w'],
                                          acti_func=self.acti_func,
                                          name='{}'.format(n_features))
-            output_tensor = conv_op(output_tensor, is_training)
+            output_tensor = conv_op(output_tensor, is_training, bn_momentum)
     
         return output_tensor
