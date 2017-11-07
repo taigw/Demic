@@ -52,15 +52,16 @@ def test_generator(config_file):
             sess.run(training_init_op)
             for step in range(train_batches_per_epoch):
                 # get next batch of data
-                [img_batch, weight_batch, label_batch, stp] = sess.run(next_batch)
-                print(stp)
-                img_0 = img_batch[0,0,:,:, 0]
-                plt.imshow(img_0)
-                plt.show()
-#                lab_0 = label_batch[0,:,:,:,0]
-#                print(epoch, step, img_0.shape, lab_0.shape)
-#                save_array_as_nifty_volume(img_0, '{0:}/img{1:}.nii'.format(temp_dir, total_step))
-#                save_array_as_nifty_volume(lab_0, '{0:}/lab{1:}.nii'.format(temp_dir, total_step))
+#                [img_batch, weight_batch, label_batch, stp] = sess.run(next_batch)
+                [img_batch, weight_batch, label_batch] = sess.run(next_batch)
+#                print(stp)
+                img_0 = img_batch[0,:,:,:, 0]
+#                plt.imshow(img_0)
+#                plt.show()
+                lab_0 = label_batch[0,:,:,:,0]
+                print(epoch, step, img_0.shape, lab_0.shape)
+                save_array_as_nifty_volume(img_0, '{0:}/img{1:}.nii'.format(temp_dir, total_step))
+                save_array_as_nifty_volume(lab_0, '{0:}/lab{1:}.nii'.format(temp_dir, total_step))
                 total_step = total_step + 1
 
 if __name__ == "__main__":

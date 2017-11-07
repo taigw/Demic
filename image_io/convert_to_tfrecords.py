@@ -32,7 +32,7 @@ def itensity_normalize_one_volume(volume, mask = None):
     std  = pixels.std()
     out = (volume - mean)/std
     out_random = np.random.normal(0, 1, size = volume.shape)
-    out[mask] = out_random[mask]
+    out[mask==0] = out_random[mask==0]
     return out
 
 class DataLoader():
