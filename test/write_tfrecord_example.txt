@@ -1,7 +1,10 @@
 [data]
+# before converting the data into tfrecord, please make sure the images have been normalised
+# and optionally, the weight (mask) and label for each image is provided
+
 # list of folders that contain images
 # (required, list of strings)
-data_root = [/Users/guotaiwang/Documents/data/FetalBrain/Data_iso_cropz]
+data_root = [/Users/guotaiwang/Documents/data/FetalBrain/Data_norm]
 
 # list of image name postfix, each is seen as one modality
 # (required, list of strings)
@@ -10,10 +13,18 @@ modality_postfix = [Image]
 # whether annotations are loaded or not
 # (required, bool)
 with_ground_truth = True
- 
+
 # post fix of label files, required if with_ground_truth is True
 # (optional, string)
 label_postfix = Label
+
+# whether weights (or mask) are loaded or not
+# (required, bool)
+with_weight = True
+
+# post fix of weight files, required if with_weight is True
+# (optional, string)
+weight_postfix = Weight
 
 # postfix of images
 # (required, string)
@@ -27,13 +38,9 @@ data_names = config/file_names/train_names_all.txt
 # (optional, list of integers)
 data_subset =  [0,10]
 
-# a threshold value to get the mask for intensity normalisation and computing weight
-# (optional, float)
-mask_threshold = 0
-
-# a list to flag whether each modality should be normalised, based on image level
-# (required, list of bool)
-intensity_normalize = [True]
+# when with_weight==True, whether replace pixels with weight ==0 with random numbers
+# (optional, bool, default is False)
+replace_background_with_random = True
 
 # the output filename
 # (required, string)

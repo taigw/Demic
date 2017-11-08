@@ -24,34 +24,20 @@ def search_file_in_folder_list(folder_list, file_name):
         raise ValueError('file not exist: {0:}'.format(file_name))
     return full_file_name
 
-def itensity_normalize_one_volume(volume, mask = None):
-    if(mask is None):
-        mask = volume > 0
-    pixels = volume[mask]
-    mean = pixels.mean()
-    std  = pixels.std()
-    out = (volume - mean)/std
-    out_random = np.random.normal(0, 1, size = volume.shape)
-    out[mask==0] = out_random[mask==0]
-    return out
-
 class DataLoader():
     def __init__(self, config):
         self.config = config
         # data information
         self.data_root = config['data_root']
         self.modality_postfix = config['modality_postfix']
-        self.label_postfix =  config.get('label_postfix', None)
+        self.with_ground_truth  = config.get('with_ground_truth', False)
+        self.with_weight = config.get('with_weight', False)
+        self.label_postfix  = config.get('label_postfix', None)
+        self.weight_postfix = config.get('weight_postfix', None)
         self.file_postfix = config['file_post_fix']
         self.data_names = config.get('data_names', None)
         self.data_subset = config.get('data_subset', None)
-        self.mask_threshold = config.get('mask_threshold', 0)
-        self.with_ground_truth  = config.get('with_ground_truth', False)
-
-        # preprocess, intensity_normalize
-        self.intensity_normalize = config.get('intensity_normalize', None)
-        if(self.intensity_normalize == None):
-            self.intensity_normalize = [True] * len(self.modality_postfix)
+        self.replace_background_with_random = config.get('replace_background_with_random', False)
 
     def __get_patient_names(self):
         if(not(self.data_names is None)):
@@ -95,31 +81,33 @@ class DataLoader():
         Y = []
         for i in range(len(self.patient_names)):
             print(i, self.patient_names[i])
-            volume_list = []
-            for mod_idx in range(len(self.modality_postfix)):
-                volume_name_short = self.patient_names[i] + '_' + self.modality_postfix[mod_idx] + '.' + self.file_postfix
-                volume_name = search_file_in_folder_list(self.data_root, volume_name_short)
-                volume = load_nifty_volume_as_array(volume_name)
-                if(mod_idx == 0):
-                    s = ndimage.generate_binary_structure(3,3)
-                    weight = volume > self.mask_threshold
-                    weight = ndimage.morphology.binary_closing(weight,s)
-                if(self.intensity_normalize[mod_idx]):
-                    volume = itensity_normalize_one_volume(volume, weight)
-                volume_list.append(volume)
-            volume_array = np.asarray(volume_list)
-            volume_array = np.transpose(volume_array, [1, 2, 3, 0]) # [D, H, W, C]
-            X.append(volume_array)
-            w_array = np.asarray([weight], np.float32)
-            w_array = np.transpose(w_array, [1, 2, 3, 0]) # [D, H, W, C]
-            W.append(w_array)
+            if(self.with_weight):
+                weight_name_short = self.patient_names[i] + '_' + self.weight_postfix + '.' + self.file_postfix
+                weight_name = search_file_in_folder_list(self.data_root, weight_name_short)
+                weight = load_nifty_volume_as_array(weight_name)
+                w_array = np.asarray([weight], np.float32)
+                w_array = np.transpose(w_array, [1, 2, 3, 0]) # [D, H, W, C]
+                W.append(w_array)      
             if(self.with_ground_truth):
                 label_name_short = self.patient_names[i] + '_' + self.label_postfix + '.' + self.file_postfix
                 label_name = search_file_in_folder_list(self.data_root, label_name_short)
                 label = load_nifty_volume_as_array(label_name)
                 y_array = np.asarray([label])
                 y_array = np.transpose(y_array, [1, 2, 3, 0]) # [D, H, W, C]
-                Y.append(y_array)
+                Y.append(y_array)  
+            volume_list = []
+            for mod_idx in range(len(self.modality_postfix)):
+                volume_name_short = self.patient_names[i] + '_' + self.modality_postfix[mod_idx] + '.' + self.file_postfix
+                volume_name = search_file_in_folder_list(self.data_root, volume_name_short)
+                volume = load_nifty_volume_as_array(volume_name)
+                if(self.with_weight and self.replace_background_with_random):
+                    arr_random = np.random.normal(0, 1, size = volume.shape)
+                    volume[weight==0] = arr_random[weight==0]
+                volume_list.append(volume)
+            volume_array = np.asarray(volume_list)
+            volume_array = np.transpose(volume_array, [1, 2, 3, 0]) # [D, H, W, C]
+            X.append(volume_array)
+            
         print('{0:} volumes have been loaded'.format(len(self.patient_names)))
         self.data   = X
         self.weight = W
@@ -133,7 +121,11 @@ class DataLoader():
             label = self.label[idx]
         else:
             label = []
-        output = [self.patient_names[idx], self.data[idx], self.weight[idx], label]
+        if(self.with_weight):
+            weight = self.weight[idx]
+        else:
+            weight = []
+        output = [self.patient_names[idx], self.data[idx], weight, label]
         return output
 
     def save_to_tfrecords(self):
@@ -143,25 +135,27 @@ class DataLoader():
         tfrecord_options= tf.python_io.TFRecordOptions(1)
         writer = tf.python_io.TFRecordWriter(tfrecords_filename, tfrecord_options)
         for i in range(len(self.data)):
-            img    = np.asarray(self.data[i], np.float32)
-            weight = np.asarray(self.weight[i], np.float32)
-            label  = np.asarray(self.label[i], np.int32)
-            img_raw    = img.tostring()
-            weight_raw = weight.tostring()
-            label_raw  = label.tostring()
-            img_shape    = np.asarray(img.shape, np.int32)
-            weight_shape = np.asarray(weight.shape, np.int32)
-            label_shape  = np.asarray(label.shape, np.int32)
-            img_shape_raw    = img_shape.tostring()
-            weight_shape_raw = weight_shape.tostring()
-            label_shape_raw  = label_shape.tostring()
             feature_dict = {}
+            img    = np.asarray(self.data[i], np.float32)
+            img_raw    = img.tostring()
+            img_shape    = np.asarray(img.shape, np.int32)
+            img_shape_raw    = img_shape.tostring()
             feature_dict['image_raw'] = _bytes_feature(img_raw)
-            feature_dict['weight_raw'] = _bytes_feature(weight_raw)
-            feature_dict['label_raw'] = _bytes_feature(label_raw)
             feature_dict['image_shape_raw'] = _bytes_feature(img_shape_raw)
-            feature_dict['weight_shape_raw'] = _bytes_feature(weight_shape_raw)
-            feature_dict['label_shape_raw'] = _bytes_feature(label_shape_raw)
+            if(self.with_weight):
+                weight = np.asarray(self.weight[i], np.float32)
+                weight_raw = weight.tostring()
+                weight_shape = np.asarray(weight.shape, np.int32)
+                weight_shape_raw = weight_shape.tostring()
+                feature_dict['weight_raw'] = _bytes_feature(weight_raw)
+                feature_dict['weight_shape_raw'] = _bytes_feature(weight_shape_raw)
+            if(self.with_ground_truth):
+                label  = np.asarray(self.label[i], np.int32)
+                label_raw  = label.tostring()
+                label_shape  = np.asarray(label.shape, np.int32)
+                label_shape_raw  = label_shape.tostring()
+                feature_dict['label_raw'] = _bytes_feature(label_raw)
+                feature_dict['label_shape_raw'] = _bytes_feature(label_shape_raw)
             example = tf.train.Example(features=tf.train.Features(feature = feature_dict))
             writer.write(example.SerializeToString())
         writer.close()
