@@ -12,7 +12,6 @@ from util.parse_config import parse_config
 from datetime import datetime
 from net.net_factory import NetFactory
 from image_io.file_read_write import *
-from image_io.convert_to_tfrecords import itensity_normalize_one_volume
 from image_io.convert_to_tfrecords import DataLoader
 
 def extract_roi_from_nd_volume(volume, roi_center, roi_shape, fill = 'random'):
