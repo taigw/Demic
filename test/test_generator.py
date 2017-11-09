@@ -56,6 +56,13 @@ def test_generator(config_file):
                     img_0 = img_batch[0,:,:,:, 0]
                     lab_0 = label_batch[0,:,:,:,0]
                     print(epoch, step, img_0.shape, lab_0.shape)
+                    img_d = img_0.shape[0]
+                    lab_d = lab_0.shape[0]
+                    if(lab_d < img_d):
+                        margin = (img_d - lab_d)/2
+                        pad_lab = np.zeros_like(img_0)
+                        pad_lab[np.ix_(range(margin, margin + lab_d), range(lab_0.shape[1]), range(lab_0.shape[2]))] = lab_0
+                        lab_0 = pad_lab
                     save_array_as_nifty_volume(img_0, '{0:}/img{1:}.nii'.format(temp_dir, total_step))
                     save_array_as_nifty_volume(lab_0, '{0:}/lab{1:}.nii'.format(temp_dir, total_step))
                 else:
