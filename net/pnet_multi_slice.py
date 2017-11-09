@@ -1,12 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, print_function
 import tensorflow as tf
+import numpy as np
 from niftynet.layer import layer_util
 from niftynet.layer.base_layer import TrainableLayer
 from niftynet.layer.convolution import ConvolutionalLayer
 from niftynet.layer.elementwise import ElementwiseLayer
 from niftynet.utilities.util_common import look_up_operations
 from net.pnet import PNet
+
+def fuse_layer_w_initializer():
+    def _initializer(shape, dtype, partition_info):
+        assert(shape[0]==3)
+        w_init0 = np.random.rand(shape[1], shape[2], shape[3], shape[4])*1e-5
+        w_init2 = np.random.rand(shape[1], shape[2], shape[3], shape[4])*1e-5
+        w_init1 = 1 - w_init0 - w_init2
+        w_init = np.asarray([w_init0, w_init1, w_init2])
+        w_init = tf.constant(w_init, tf.float32)
+        return w_init
+    return _initializer
+
 class PNet_Multi_Slice(TrainableLayer):
     """
         Reimplementation of P-Net
@@ -20,25 +33,33 @@ class PNet_Multi_Slice(TrainableLayer):
                  w_regularizer=None,
                  b_initializer=None,
                  b_regularizer=None,
+                 num_slices = 3,
+                 num_features = 16,
                  acti_func='prelu',
                  name='PNet_Multi_Slice'):
         super(PNet_Multi_Slice, self).__init__(name=name)
         
         self.acti_func = acti_func
         self.num_classes = num_classes
-        
+        self.num_slices = num_slices
+        self.num_features = num_features
         self.initializers = {'w': w_initializer, 'b': b_initializer}
         self.regularizers = {'w': w_regularizer, 'b': b_regularizer}
         
         print('using {}'.format(name))
     
     def layer_op(self, images, is_training, bn_momentum=0.9, layer_id=-1):
+        fuse_layer = ConvolutionalLayer(n_output_chns=self.num_features,
+                                kernel_size=[self.num_slices,1,1],
+                                w_initializer = fuse_layer_w_initializer(),
+                                w_regularizer = self.regularizers['w'],
+                                padding = 'Valid',
+                                name='fuse_layer')
         pnet_layer = PNet(self.num_classes,
                           w_initializer=self.initializers['w'],
                           w_regularizer=self.regularizers['w'],
                           acti_func=self.acti_func,
                           name = 'pnet_layer')
-        # transpose the input from [N, D, H, W, 1] to [N, 1, H, W, D]
-        output = tf.transpose(images, perm=[0,4,2,3,1])
+        output = fuse_layer(images, is_training, bn_momentum)
         output = pnet_layer(output, is_training, bn_momentum)
         return output

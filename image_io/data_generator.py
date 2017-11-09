@@ -6,11 +6,9 @@
 import os
 import tensorflow as tf
 import numpy as np
-from random import shuffle
 from tensorflow.contrib.data import TFRecordDataset
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework.ops import convert_to_tensor
-import random
 
 
 def random_flip_tensors_in_one_dim(x, d):
@@ -49,7 +47,7 @@ class ImageDataGenerator(object):
         self.label_convert_target = self.config.get('label_convert_target', None)
         
         data = TFRecordDataset(self.config['tfrecords_filename'],"ZLIB")
-        data = data.map(self._parse_function, num_threads=5,
+        data = data.map(self._parse_function, num_threads=1,
                         output_buffer_size=20*batch_size)
         if(self.config.get('data_shuffle', False)):
             data = data.shuffle(buffer_size = 20*batch_size)

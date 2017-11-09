@@ -20,8 +20,11 @@ class TrainAgent(object):
         self.config_data = config['tfrecords']
         self.config_net  = config['network']
         self.config_train= config['training']
-        random.seed = (self.config_train.get('random_seed', 1))
-    
+        
+        seed = self.config_train.get('random_seed', 1)
+        tf.set_random_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
     def get_output_and_loss(self):
         pass
 
