@@ -188,6 +188,7 @@ class MultiSliceSpatialTransform(TrainableLayer):
                        batch_size = tpp_batch,
                        name = 'tpp_net')
         raw_param = tpp_net(tpp_input, is_training, bn_momentum)
+        
         # convert stn_param from (tpp_batch, 3) to (tpp_batch, 6)
         theta = tf.slice(raw_param, begin=[0,0], size = [tpp_batch, 1])
         dx    = tf.slice(raw_param, begin=[0,1], size = [tpp_batch, 1])
@@ -205,7 +206,7 @@ class MultiSliceSpatialTransform(TrainableLayer):
 
         stn_output = transformer(stn_input, stn_param, (self.input_shape[2],self.input_shape[3]))
         output = tf.reshape(stn_output, self.input_shape)
-        return output, raw_param
+        return output
 
 def fuse_layer_w_initializer():
     def _initializer(shape, dtype, partition_info):
