@@ -47,7 +47,7 @@ class ImageDataGenerator(object):
         self.label_convert_target = self.config.get('label_convert_target', None)
         
         data = TFRecordDataset(self.config['tfrecords_filename'],"ZLIB")
-        data = data.map(self._parse_function, num_threads=1,
+        data = data.map(self._parse_function, num_threads=5,
                         output_buffer_size=20*batch_size)
         if(self.config.get('data_shuffle', False)):
             data = data.shuffle(buffer_size = 20*batch_size)
