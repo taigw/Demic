@@ -168,7 +168,7 @@ class MultiSliceSpatialTransform(TrainableLayer):
                 temp_slice  = tf.slice(images, begin, size)
                 temp_stack.append(temp_slice)
             batch_of_stacks.append(temp_stack)
-        central_j = (self.input_shape[1]-1)/2
+        central_j = int((self.input_shape[1]-1)/2)
 
         # get input for tpp, with size of [N*D, H, W, 2]
         batch_of_cat_stacks = []
