@@ -6,6 +6,7 @@ import sys
 from net.unet2d import UNet2D
 from net.pnet import PNet
 from net.pnet_multi_slice import PNet_Multi_Slice
+from net.pnet_multi_slice_deep_fuse import PNet_Multi_Slice_Deep_Fuse
 from net.pnet_stn import PNet_STN
 from net.vgg21 import VGG21
 class NetFactory(object):
@@ -17,6 +18,8 @@ class NetFactory(object):
             return PNet
         if name == 'PNet_Multi_Slice':
             return PNet_Multi_Slice
+        if name == 'PNet_Multi_Slice_Deep_Fuse':
+            return PNet_Multi_Slice_Deep_Fuse
         if name == 'PNet_STN':
             return PNet_STN
         if name == 'VGG21':
