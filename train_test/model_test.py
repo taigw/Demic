@@ -8,11 +8,12 @@ import math
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from util.parse_config import parse_config
 from datetime import datetime
 from net.net_factory import NetFactory
 from image_io.file_read_write import *
 from image_io.convert_to_tfrecords import DataLoader
+from util.parse_config import parse_config
+from util.image_process import resize_ND_volume_to_given_shape
 
 def extract_roi_from_nd_volume(volume, roi_center, roi_shape, fill = 'random'):
     '''Extract an roi from a nD volume
@@ -165,7 +166,21 @@ class TestAgent:
                     name = self.config_net['net_name'])
 
     def test_one_volume(self, img):
-        [D, H, W, C] = img.shape
+        # calculate shape of tensors
+        batch_size = self.config_test.get('batch_size', 1)
+        data_shape = self.config_net['data_shape']
+        label_shape= self.config_net['label_shape']
+        class_num  = self.config_net['class_num']
+        shape_mode = self.config_test.get('shape_mode', 1)
+        margin = [data_shape[i] - label_shape[i] for i in range(len(data_shape))]
+
+        if(shape_mode == 1):
+            [D0, H0, W0, C0] = img.shape
+            resized_shape = [D0, data_shape[1], data_shape[2], C0]
+            resized_img = resize_ND_volume_to_given_shape(img, resized_shape, order = 3)
+            [D, H, W, C] = resized_shape
+        else:
+            [D, H, W, C] = img.shape
         # pad input image to desired size
         size_factor = self.config_test.get('size_factor',[1,1,1])
         Dr = int(math.ceil(float(D)/size_factor[0])*size_factor[0])
@@ -174,13 +189,7 @@ class TestAgent:
         pad_img = np.random.normal(size = [Dr, Hr, Wr, C])
         pad_img[np.ix_(range(D), range(H), range(W), range(C))] = img
         
-        # calculate shape of tensors
-        batch_size = self.config_test.get('batch_size', 1)
-        data_shape = self.config_net['data_shape']
-        label_shape= self.config_net['label_shape']
-        class_num  = self.config_net['class_num']
-        shape_mode = self.config_test.get('shape_mode', 1)
-        margin = [data_shape[i] - label_shape[i] for i in range(len(data_shape))]
+ 
         if(shape_mode > 1):
             if(shape_mode ==3):
                 data_shape[0] = Dr
@@ -210,6 +219,8 @@ class TestAgent:
                                                        class_num, batch_size, self.sess, x, proby)
         outputy = np.asarray(np.argmax(outputp, axis = 3), np.uint16)
         outputy = outputy[np.ix_(range(D), range(H), range(W))]
+        if(shape_mode == 1):
+            outputy = resize_ND_volume_to_given_shape(outputy, img.shape[:-1], order = 0)
         return outputy
 
 def model_test(config_file):
