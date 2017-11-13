@@ -180,7 +180,7 @@ class TestAgent:
             resized_img = resize_ND_volume_to_given_shape(img, resized_shape, order = 3)
         else:
             resized_img = img
-        [D, H, W, C] = resized_shape
+        [D, H, W, C] = resized_img.shape
         # pad input image to desired size
         size_factor = self.config_test.get('size_factor',[1,1,1])
         Dr = int(math.ceil(float(D)/size_factor[0])*size_factor[0])
@@ -189,15 +189,13 @@ class TestAgent:
         pad_img = np.random.normal(size = [Dr, Hr, Wr, C])
         pad_img[np.ix_(range(D), range(H), range(W), range(C))] = resized_img
         
- 
-        if(shape_mode > 1):
-            if(shape_mode ==3):
-                data_shape[0] = Dr
-                label_shape[0]= Dr - margin[0]
-            data_shape[1] = Hr
-            data_shape[2] = Wr
-            label_shape[1]= Hr - margin[1]
-            label_shape[2]= Wr - margin[2]
+        if(shape_mode ==1 or shape_mode==3):
+            data_shape[0] = Dr
+            label_shape[0]= Dr - margin[0]
+        data_shape[1] = Hr
+        data_shape[2] = Wr
+        label_shape[1]= Hr - margin[1]
+        label_shape[2]= Wr - margin[2]
         full_data_shape  = [batch_size] + data_shape
         full_label_shape = [batch_size] + label_shape
         full_weight_shape = [i for i in full_data_shape]
