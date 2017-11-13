@@ -178,16 +178,16 @@ class TestAgent:
             [D0, H0, W0, C0] = img.shape
             resized_shape = [D0, data_shape[1], data_shape[2], C0]
             resized_img = resize_ND_volume_to_given_shape(img, resized_shape, order = 3)
-            [D, H, W, C] = resized_shape
         else:
-            [D, H, W, C] = img.shape
+            resized_img = img
+        [D, H, W, C] = resized_shape
         # pad input image to desired size
         size_factor = self.config_test.get('size_factor',[1,1,1])
         Dr = int(math.ceil(float(D)/size_factor[0])*size_factor[0])
         Hr = int(math.ceil(float(H)/size_factor[1])*size_factor[1])
         Wr = int(math.ceil(float(W)/size_factor[2])*size_factor[2])
         pad_img = np.random.normal(size = [Dr, Hr, Wr, C])
-        pad_img[np.ix_(range(D), range(H), range(W), range(C))] = img
+        pad_img[np.ix_(range(D), range(H), range(W), range(C))] = resized_img
         
  
         if(shape_mode > 1):
