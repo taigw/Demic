@@ -170,6 +170,7 @@ class TestAgent:
                         name = self.config_net['net_name'])
         else:
             self.net = net_class(num_classes = self.config_net['class_num'],
+                                 parameters = config['network_parameter'],
                                  w_regularizer = None,
                                  b_regularizer = None,
                                  name = self.config_net['net_name'])

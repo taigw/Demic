@@ -19,6 +19,7 @@ class TrainAgent(object):
     def __init__(self, config):
         self.config_data = config['tfrecords']
         self.config_net  = config['network']
+        self.net_params  = config['network_parameter']
         self.config_train= config['training']
         
         seed = self.config_train.get('random_seed', 1)
@@ -112,6 +113,7 @@ class SegmentationTrainAgent(TrainAgent):
         net_class = NetFactory.create(self.config_net['net_type'])
         
         net = net_class(num_classes = self.class_num,
+                        parameters  = self.net_params,
                         w_regularizer = w_regularizer,
                         b_regularizer = b_regularizer,
                         name = self.config_net['net_name'])
@@ -139,6 +141,7 @@ class RegressionTrainAgent(TrainAgent):
 
         output_dim_num = np.prod(self.config_net['out_shape'])
         net = net_class(num_classes = output_dim_num,
+                        parameters = self.net_params,
                         w_regularizer = w_regularizer,
                         b_regularizer = b_regularizer,
                         name = self.config_net['net_name'])

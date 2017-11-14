@@ -17,6 +17,7 @@ class PNet(TrainableLayer):
     
     def __init__(self,
                  num_classes,
+                 parameters = None,
                  w_initializer=None,
                  w_regularizer=None,
                  b_initializer=None,
@@ -24,9 +25,12 @@ class PNet(TrainableLayer):
                  acti_func='prelu',
                  name='PNet'):
         super(PNet, self).__init__(name=name)
-        
-        self.n_features = [64, 64, 64, 64, 64]
-        self.dilations  = [1, 2, 3, 4, 5]
+        if(parameters is None):
+            self.n_features = [64, 64, 64, 64, 64]
+            self.dilations  = [1, 2, 3, 4, 5]
+        else:
+            self.n_features = parameters.get('num_features', [64, 64, 64, 64, 64])
+            self.dilations  = parameters.get('num_features', [1, 2, 3, 4, 5])
         self.acti_func = acti_func
         self.num_classes = num_classes
         
