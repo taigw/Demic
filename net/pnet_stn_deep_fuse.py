@@ -4,13 +4,22 @@ import tensorflow as tf
 import numpy as np
 from niftynet.layer import layer_util
 from niftynet.layer.base_layer import TrainableLayer
-from niftynet.layer.convolution import ConvolutionalLayer,
-from niftynet.layer.fully_connected import ConvLayer
+from niftynet.layer.convolution import ConvLayer
 from niftynet.layer.elementwise import ElementwiseLayer
 from niftynet.utilities.util_common import look_up_operations
 from net.pnet import PNet
 from net.pnet_stn import MultiSliceSpatialTransform
 
+def fuse_layer_w_initializer():
+    def _initializer(shape, dtype, partition_info):
+        assert(shape[0]==3)
+        w_init0 = np.random.rand(shape[1], shape[2], shape[3], shape[4])*1e-5
+        w_init2 = np.random.rand(shape[1], shape[2], shape[3], shape[4])*1e-5
+        w_init1 = 1 - w_init0 - w_init2
+        w_init = np.asarray([w_init0, w_init1, w_init2])
+        w_init = tf.constant(w_init, tf.float32)
+        return w_init
+    return _initializer
 
 class PNet_STN_DF(TrainableLayer):
     """
@@ -51,7 +60,7 @@ class PNet_STN_DF(TrainableLayer):
                           acti_func=self.acti_func,
                           name = 'pnet_layer')
         fuse_layer = ConvLayer(n_output_chns=self.num_classes,
-                             kernel_size=[self.num_slices,1,1],
+                             kernel_size=[self.input_shape[1],1,1],
                              w_initializer = fuse_layer_w_initializer(),
                              w_regularizer = self.regularizers['w'],
                              padding = 'Valid',
