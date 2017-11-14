@@ -160,10 +160,19 @@ class TestAgent:
         
         # creat net
         net_class = NetFactory.create(self.config_net['net_type'])
-        self.net = net_class(num_classes = self.config_net['class_num'],
-                    w_regularizer = None,
-                    b_regularizer = None,
-                    name = self.config_net['net_name'])
+        if(self.config_net['net_type']=='PNet_STN'):
+            batch_size = self.config_test.get('batch_size', 1)
+            tensor_shape = [batch_size] + self.config_net['data_shape']
+            self.net = net_class(num_classes = self.config_net['class_num'],
+                        w_regularizer = None,
+                        b_regularizer = None,
+                        input_shape = tensor_shape,
+                        name = self.config_net['net_name'])
+        else:
+            self.net = net_class(num_classes = self.config_net['class_num'],
+                                 w_regularizer = None,
+                                 b_regularizer = None,
+                                 name = self.config_net['net_name'])
 
     def test_one_volume(self, img):
         # calculate shape of tensors
@@ -189,7 +198,7 @@ class TestAgent:
         pad_img = np.random.normal(size = [Dr, Hr, Wr, C])
         pad_img[np.ix_(range(D), range(H), range(W), range(C))] = resized_img
         
-        if(shape_mode ==1 or shape_mode==3):
+        if(shape_mode==3):
             data_shape[0] = Dr
             label_shape[0]= Dr - margin[0]
         data_shape[1] = Hr
