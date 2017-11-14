@@ -22,27 +22,28 @@ def fuse_layer_w_initializer():
 
 class PNet_Multi_Slice_Deep_Fuse(TrainableLayer):
     """
-        Reimplementation of P-Net
-        Ronneberger, Olaf, Philipp Fischer, and Thomas Brox. "U-net: Convolutional networks for biomedical image segmentation." MICCAI 2015
-        The input tensor shape is [N, D, H, W, C] where D is 1
+        PNet_Multi_Slice_Deep_Fuse
+            The input tensor shape is [N, D, H, W, C] 
+            network parameters:
+            -- num_slices： number of slices for fusion
+            -- num_features: features for P-Net, default [64, 64, 64, 64, 64]
+            -- dilations:    dilation of P-Net, default [1, 2, 3, 4, 5]
         """
     
     def __init__(self,
                  num_classes,
+                 parameters = None,
                  w_initializer=None,
                  w_regularizer=None,
                  b_initializer=None,
                  b_regularizer=None,
-                 num_slices = 3,
-                 num_features = 16,
                  acti_func='prelu',
                  name='PNet_Multi_Slice_Deep_Fuse'):
         super(PNet_Multi_Slice_Deep_Fuse, self).__init__(name=name)
-        
+        self.parameters = parameters
         self.acti_func = acti_func
         self.num_classes = num_classes
-        self.num_slices = num_slices
-        self.num_features = num_features
+        self.num_slices = parameters['num_slices']
         self.initializers = {'w': w_initializer, 'b': b_initializer}
         self.regularizers = {'w': w_regularizer, 'b': b_regularizer}
         
@@ -50,6 +51,7 @@ class PNet_Multi_Slice_Deep_Fuse(TrainableLayer):
     
     def layer_op(self, images, is_training, bn_momentum=0.9, layer_id=-1):
         pnet_layer = PNet(self.num_classes,
+                          parameters = self.parameters,
                           w_initializer=self.initializers['w'],
                           w_regularizer=self.regularizers['w'],
                           acti_func=self.acti_func,

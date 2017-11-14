@@ -10,9 +10,11 @@ from niftynet.utilities.util_common import look_up_operations
 
 class PNet(TrainableLayer):
     """
-        Reimplementation of P-Net
-        Ronneberger, Olaf, Philipp Fischer, and Thomas Brox. "U-net: Convolutional networks for biomedical image segmentation." MICCAI 2015
-        The input tensor shape is [N, D, H, W, C] where D is 1
+        P-Net
+            The input tensor shape is [N, D, H, W, C] 
+            network parameters:
+            -- num_features: features for P-Net, default [64, 64, 64, 64, 64]
+            -- dilations:    dilation of P-Net, default [1, 2, 3, 4, 5]
         """
     
     def __init__(self,

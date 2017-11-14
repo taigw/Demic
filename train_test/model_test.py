@@ -160,20 +160,11 @@ class TestAgent:
         
         # creat net
         net_class = NetFactory.create(self.config_net['net_type'])
-        if(self.config_net['net_type']=='PNet_STN'):
-            batch_size = self.config_test.get('batch_size', 1)
-            tensor_shape = [batch_size] + self.config_net['data_shape']
-            self.net = net_class(num_classes = self.config_net['class_num'],
-                        w_regularizer = None,
-                        b_regularizer = None,
-                        input_shape = tensor_shape,
-                        name = self.config_net['net_name'])
-        else:
-            self.net = net_class(num_classes = self.config_net['class_num'],
-                                 parameters = config['network_parameter'],
-                                 w_regularizer = None,
-                                 b_regularizer = None,
-                                 name = self.config_net['net_name'])
+        self.net = net_class(num_classes = self.config_net['class_num'],
+                             parameters = config['network_parameter'],
+                             w_regularizer = None,
+                             b_regularizer = None,
+                             name = self.config_net['net_name'])
 
     def test_one_volume(self, img):
         # calculate shape of tensors

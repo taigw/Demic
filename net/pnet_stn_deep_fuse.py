@@ -23,27 +23,29 @@ def fuse_layer_w_initializer():
 
 class PNet_STN_DF(TrainableLayer):
     """
-        Reimplementation of P-Net
-        Ronneberger, Olaf, Philipp Fischer, and Thomas Brox. "U-net: Convolutional networks for biomedical image segmentation." MICCAI 2015
-        The input tensor shape is [N, D, H, W, C] where D is 1
+        PNet_STN_DF
+        The input tensor shape is [N, D, H, W, C]
+        network parameters:
+        -- input_shape：input shape of network, e.g. [5, 3, 96, 96, 1]
+        -- num_features: features for P-Net, default [64, 64, 64, 64, 64]
+        -- dilations:    dilation of P-Net, default [1, 2, 3, 4, 5]
+
         """
     
     def __init__(self,
                  num_classes,
+                 parameters   =None,
                  w_initializer=None,
                  w_regularizer=None,
                  b_initializer=None,
                  b_regularizer=None,
-                 input_shape = [5, 3, 96, 96, 1],
-                 num_features = 16,
                  acti_func='prelu',
                  name='PNet_STN_DF'):
         super(PNet_STN_DF, self).__init__(name=name)
-        
+        self.parameters = parameters
         self.acti_func = acti_func
         self.num_classes = num_classes
-        self.input_shape = input_shape
-        self.num_features = num_features
+        self.input_shape = parameters['input_shape']
         self.initializers = {'w': w_initializer, 'b': b_initializer}
         self.regularizers = {'w': w_regularizer, 'b': b_regularizer}
         
@@ -55,6 +57,7 @@ class PNet_STN_DF(TrainableLayer):
                                                w_regularizer = self.regularizers['w'],
                                                name = 'stn_layer')
         pnet_layer = PNet(self.num_classes,
+                          self.parameters,
                           w_initializer=self.initializers['w'],
                           w_regularizer=self.regularizers['w'],
                           acti_func=self.acti_func,
