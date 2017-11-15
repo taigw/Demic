@@ -62,6 +62,7 @@ class PNet_STN_DF(TrainableLayer):
                           w_regularizer=self.regularizers['w'],
                           acti_func=self.acti_func,
                           name = 'pnet_layer')
+                          
         fuse_layer = ConvLayer(n_output_chns=self.num_classes,
                              kernel_size=[self.input_shape[1],1,1],
                              w_initializer = fuse_layer_w_initializer(),
