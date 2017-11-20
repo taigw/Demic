@@ -168,14 +168,15 @@ class PNet_STN_WDF(TrainableLayer):
                                   name = 'weight_layer')
         slice_layer = TensorSliceLayer(margin = 1)
 
-        img_aligned = stn_layer(images, is_training, bn_momentum)
-        output = pnet_layer(img_aligned, is_training, bn_momentum)
         if (self.parameters['slice_fusion'] == True):
+            img_aligned = stn_layer(images, is_training, bn_momentum)
+            output = pnet_layer(img_aligned, is_training, bn_momentum)
             weight = weight_layer(img_aligned, is_training, bn_momentum)
             output = output*weight
             output = tf.reduce_sum(output, axis = 1, keep_dims = True)
         else:
-            output = slice_layer(output)
+            output = slice_layer(images)
+            output = pnet_layer(output, is_training, bn_momentum)
         return output
 
 if __name__ == '__main__':
