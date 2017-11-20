@@ -175,6 +175,7 @@ class PNet_STN_WDF(TrainableLayer):
             output = output*weight
             output = tf.reduce_sum(output, axis = 1, keep_dims = True)
         else:
+            print('slice fusion is false')
             output = slice_layer(images)
             output = pnet_layer(output, is_training, bn_momentum)
         return output
