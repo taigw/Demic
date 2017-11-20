@@ -101,6 +101,25 @@ class Weight_Net(TrainableLayer):
         output = tf.transpose(output, perm = [0, 4, 2, 3, 1])
         return output
 
+class TensorSliceLayer(TrainableLayer):
+    """
+        extract the central part of a tensor
+        """
+    
+    def __init__(self, margin = 1, regularizer=None, name='tensor_extract'):
+        self.layer_name = name
+        super(TensorSliceLayer, self).__init__(name=self.layer_name)
+        self.margin = margin
+    
+    def layer_op(self, input_tensor):
+        input_shape = input_tensor.get_shape().as_list()
+        begin = [0]*len(input_shape)
+        begin[1] = self.margin
+        size = input_shape
+        size[1] = size[1] - 2* self.margin
+        output_tensor = tf.slice(input_tensor, begin, size, name='slice')
+        return output_tensor
+
 class PNet_STN_WDF(TrainableLayer):
     """
         PNet_STN_DF
@@ -147,12 +166,16 @@ class PNet_STN_WDF(TrainableLayer):
                                   w_regularizer=self.regularizers['w'],
                                   acti_func=self.acti_func,
                                   name = 'weight_layer')
+        slice_layer = TensorSliceLayer(margin = 1)
 
         img_aligned = stn_layer(images, is_training, bn_momentum)
         output = pnet_layer(img_aligned, is_training, bn_momentum)
-        weight = weight_layer(img_aligned, is_training, bn_momentum)
-        output = output*weight
-        output = tf.reduce_sum(output, axis = 1, keep_dims = True)
+        if (self.parameters['slice_fusion'] == True):
+            weight = weight_layer(img_aligned, is_training, bn_momentum)
+            output = output*weight
+            output = tf.reduce_sum(output, axis = 1, keep_dims = True)
+        else:
+            output = slice_layer(output)
         return output
 
 if __name__ == '__main__':
