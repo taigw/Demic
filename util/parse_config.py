@@ -15,7 +15,7 @@ def is_int(val_str):
 
 def is_float(val_str):
     flag = False
-    if('.' in val_str and len(val_str.split('.'))==2):
+    if('.' in val_str and len(val_str.split('.'))==2 and not('./' in val_str)):
         if(is_int(val_str.split('.')[0]) and is_int(val_str.split('.')[1])):
             flag = True
         else:
@@ -86,11 +86,11 @@ def parse_config(filename):
         for key in config[section]:
             val_str = str(config[section][key])
             if(len(val_str)>0):
-                val = parse_value_from_string(val_str) 
+                val = parse_value_from_string(val_str)
+                output[section][key] = val
             else:
                 val = None
-            print(section, key,val_str, val)
-            output[section][key] = val
+            print(section, key, val_str, val)
     return output
             
 if __name__ == "__main__":

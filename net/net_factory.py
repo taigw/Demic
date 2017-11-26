@@ -3,14 +3,14 @@ from __future__ import absolute_import, print_function
 
 import os
 import sys
-from net.unet2d import UNet2D
-from net.pnet import PNet
-from net.pnet_multi_slice import PNet_Multi_Slice
-from net.pnet_multi_slice_deep_fuse import PNet_Multi_Slice_Deep_Fuse
-from net.pnet_stn import PNet_STN
-from net.pnet_stn_deep_fuse import PNet_STN_DF
-from net.pnet_stn_deep_weight_fuse import PNet_STN_WDF
-from net.vgg21 import VGG21
+from Demic.net.unet2d import UNet2D
+from Demic.net.pnet import PNet
+from Demic.net.pnet_multi_slice import PNet_Multi_Slice
+from Demic.net.pnet_multi_slice_deep_fuse import PNet_Multi_Slice_Deep_Fuse
+from Demic.net.pnet_stn import PNet_STN
+from Demic.net.pnet_stn_deep_fuse import PNet_STN_DF
+from Demic.net.pnet_stn_deep_weight_fuse import PNet_STN_WDF
+from Demic.net.vgg21 import VGG21
 class NetFactory(object):
     @staticmethod
     def create(name):
