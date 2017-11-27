@@ -11,7 +11,7 @@ import numpy as np
 import random
 from scipy import ndimage
 from Demic.image_io.file_read_write import load_nifty_volume_as_array
-from Demic.util.image_process import resize_ND_volume_to_given_shape
+from Demic.util.image_process import *
 
 def search_file_in_folder_list(folder_list, file_name):
     file_exist = False
@@ -158,17 +158,6 @@ class ImageLoader(object):
             one_patient_names['label_name'] = label_name
             full_patient_names.append(one_patient_names)
         return patient_names, full_patient_names
-
-    def pad_volume_to_desired_shape(self, volume, desired_shape):
-        """ Pad a volume to desired shape
-            if the input size is larger than output shape, then reture then input volume
-        """
-        input_shape = np.shape(volume)
-        output_shape = [max(input_shape[i], desired_shape[i]) for i in range(len(input_shape))]
-        pad = [int(math.ceil((output_shape[i]-input_shape[i])/2)) for i in range(len(input_shape))]
-        if(np.asarray(pad).sum() > 0):
-            volume = np.pad(volume, pad, mode = 'reflect')
-        return volume
     
     def random_sample_patch(self, img, wht, lab):
         """Sample a patch from the image with a random position.
@@ -177,10 +166,9 @@ class ImageLoader(object):
         """
         img_shape_out = self.config['data_shape']['features']['x']
         lab_shape_out = self.config['data_shape']['labels']['y']
-        
         # if output shape is larger than input shape, padding is needed
-        img = self.pad_volume_to_desired_shape(img, img_shape_out)
-        lab = self.pad_volume_to_desired_shape(lab, lab_shape_out)
+        img = pad_ND_volume_to_desired_shape(img, img_shape_out)
+        lab = pad_ND_volume_to_desired_shape(lab, img_shape_out[:-1] + [lab_shape_out[-1]])
         img_shape_in = np.shape(img)
         lab_shape_in = np.shape(lab)
 
@@ -191,7 +179,6 @@ class ImageLoader(object):
             lab_begin_i = img_begin_i + self.label_margin[i]
             img_begin.append(img_begin_i)
             lab_begin.append(lab_begin_i)
-
         img_sub = img[img_begin[0]:img_begin[0] + img_shape_out[0],
                       img_begin[1]:img_begin[1] + img_shape_out[1],
                       img_begin[2]:img_begin[2] + img_shape_out[2],:]
@@ -200,32 +187,11 @@ class ImageLoader(object):
                       lab_begin[2]:lab_begin[2] + lab_shape_out[2],:]
         wht_sub = None
         if(wht is not None):
+            wht = pad_ND_volume_to_desired_shape(lab, img_shape_out[:-1] + [lab_shape_out[-1]])
             wht_sub = wht[lab_begin[0]:lab_begin[0] + lab_shape_out[0],
                           lab_begin[1]:lab_begin[1] + lab_shape_out[1],
                           lab_begin[2]:lab_begin[2] + lab_shape_out[2],:]
         return [img_sub, wht_sub, lab_sub]
-    
-    def get_4d_bounding_box(self, label, margin):
-        [d_idxes, h_idxes, w_idxes, c_idxes] = np.nonzero(label)
-        mind = d_idxes.min(); maxd = d_idxes.max()
-        minh = h_idxes.min(); maxh = h_idxes.max()
-        minw = w_idxes.min(); maxw = w_idxes.max()
-        minc = c_idxes.min(); maxc = c_idxes.max()
-        
-        idx_min = [mind, minh, minw, minc]
-        idx_max = [maxd, maxh, maxw, maxc]
-        input_shape = np.shape(label)
-        for i in range(4):
-            idx_min[i] = max(idx_min[i] - margin[i], 0)
-            idx_max[i] = min(idx_max[i] + margin[i], input_shape[i] - 1)
-        return idx_min, idx_max
-
-    def crop_4d_volume_with_bounding_box(self, volume, min_idx, max_idx):
-        output = volume[np.ix_(range(min_idx[0], max_idx[0] + 1),
-                               range(min_idx[1], max_idx[1] + 1),
-                               range(min_idx[2], max_idx[2] + 1),
-                               range(min_idx[3], max_idx[3] + 1))]
-        return output
 
     def extract_and_augment_patch(self, x_array, w_array, y_array):
         """
@@ -259,32 +225,29 @@ class ImageLoader(object):
             # crop with 3d bounding box, resize to given 2D size, then sample along z-axis
             assert(y_array is not None)
             margin = self.config.get('bounding_box_margin', [0,0,0])
-            [min_idx, max_idx] = self.get_4d_bounding_box(y_array, margin + [0])
-            print(min_idx, max_idx)
-            x_array = self.crop_4d_volume_with_bounding_box(x_array, min_idx, max_idx)
-            print(x_array.shape)
+            [min_idx, max_idx] = get_ND_bounding_box(y_array, margin + [0])
+            x_array = crop_ND_volume_with_bounding_box(x_array, min_idx, max_idx)
             if(w_array is not None):
-                w_array = self.crop_4d_volume_with_bounding_box(w_array, min_idx, max_idx)
-            y_array = self.crop_4d_volume_with_bounding_box(y_array, min_idx, max_idx)
+                w_array = crop_ND_volume_with_bounding_box(w_array, min_idx, max_idx)
+            y_array = crop_ND_volume_with_bounding_box(y_array, min_idx, max_idx)
             
-#            new_x_size = np.shape(x_array)
-#            new_x_size[1] = x_shape_out[1]
-#            new_x_size[2] = x_shape_out[2]
-#            x_array = resize_ND_volume_to_given_shape(x_array, new_x_size, order = 2)
-#            
-#            if(w_array is not None):
-#                new_w_size = np.shape(w_array)
-#                new_w_size[1] = x_shape_out[1]
-#                new_w_size[2] = x_shape_out[2]
-#                w_array = resize_ND_volume_to_given_shape(w_array, new_w_size, order = 2)
-#            
-#            new_y_size = np.shape(y_array)
-#            new_y_size[1] = x_shape_out[1]
-#            new_y_size[2] = x_shape_out[2]
-#            y_array = resize_ND_volume_to_given_shape(y_array, new_y_size, order = 0)
-
+            new_x_size = list(np.shape(x_array))
+            new_x_size[1] = x_shape_out[1]
+            new_x_size[2] = x_shape_out[2]
+            x_array = resize_ND_volume_to_given_shape(x_array, new_x_size, order = 2)
+            
+            if(w_array is not None):
+                new_w_size = list(np.shape(w_array))
+                new_w_size[1] = x_shape_out[1]
+                new_w_size[2] = x_shape_out[2]
+                w_array = resize_ND_volume_to_given_shape(w_array, new_w_size, order = 2)
+            
+            new_y_size = list(np.shape(y_array))
+            new_y_size[1] = x_shape_out[1]
+            new_y_size[2] = x_shape_out[2]
+            y_array = resize_ND_volume_to_given_shape(y_array, new_y_size, order = 0)
+            
         [x_array, w_array, y_array] = self.random_sample_patch(x_array, w_array, y_array)
-
         # 3, augment by random flip
         if(self.config.get('flip_w', False) and (random.random() > 0.5)):
             x_array = x_array[:, :, ::-1, :]
