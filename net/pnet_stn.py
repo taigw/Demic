@@ -9,8 +9,8 @@ from niftynet.layer.fully_connected import FullyConnectedLayer
 from niftynet.layer.downsample import DownSampleLayer
 from niftynet.layer.elementwise import ElementwiseLayer
 from niftynet.utilities.util_common import look_up_operations
-from net.pnet import PNet
-from net.spatial_transformer import transformer
+from Demic.net.pnet import PNet
+from Demic.net.spatial_transformer import transformer
 
 def w_initializer_near_zero():
     def _initializer(shape, dtype, partition_info):

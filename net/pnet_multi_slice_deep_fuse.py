@@ -7,7 +7,7 @@ from niftynet.layer.base_layer import TrainableLayer
 from niftynet.layer.convolution import ConvLayer
 from niftynet.layer.elementwise import ElementwiseLayer
 from niftynet.utilities.util_common import look_up_operations
-from net.pnet import PNet
+from Demic.net.pnet import PNet
 
 def fuse_layer_w_initializer():
     def _initializer(shape, dtype, partition_info):
