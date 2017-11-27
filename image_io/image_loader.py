@@ -155,7 +155,7 @@ class ImageLoader(object):
             one_patient_names = {}
             one_patient_names['image_names'] = image_names
             one_patient_names['weight_name'] = weight_name
-            one_patient_names['label_name'] = label_name
+            one_patient_names['label_name']  = label_name
             full_patient_names.append(one_patient_names)
         return patient_names, full_patient_names
     
@@ -187,7 +187,7 @@ class ImageLoader(object):
                       lab_begin[2]:lab_begin[2] + lab_shape_out[2],:]
         wht_sub = None
         if(wht is not None):
-            wht = pad_ND_volume_to_desired_shape(lab, img_shape_out[:-1] + [lab_shape_out[-1]])
+            wht = pad_ND_volume_to_desired_shape(wht, img_shape_out[:-1] + [lab_shape_out[-1]])
             wht_sub = wht[lab_begin[0]:lab_begin[0] + lab_shape_out[0],
                           lab_begin[1]:lab_begin[1] + lab_shape_out[1],
                           lab_begin[2]:lab_begin[2] + lab_shape_out[2],:]
@@ -205,7 +205,20 @@ class ImageLoader(object):
                 y_array: a subregion of input y_array
             
         """
-        # 1, augmentation by random rotation
+        # 1, convert label
+        label_source = self.config.get('label_convert_source', None)
+        label_target = self.config.get('label_convert_target', None)
+        if((label_source is not None) and (label_target is not None)):
+            assert(y_array is not None)
+            assert(len(label_source) == len(label_target))
+            label_converted = np.zeros_like(y_array)
+            for i in range(len(label_source)):
+                label_temp = y_array == np.ones_like(y_array)*label_source[i]
+                label_temp = np.asarray(label_temp, np.int32)*label_target[i]
+                label_converted = label_converted + label_temp
+            y_array = label_converted
+        
+        # 2, augmentation by random rotation
         random_rotate = self.config.get('random_rotate', None)
         if(not(random_rotate is None)):
             assert(len(random_rotate) == 2 and (random_rotate[0] < random_rotate[1]))
@@ -216,7 +229,7 @@ class ImageLoader(object):
             if(y_array is not None):
                 y_array = ndimage.interpolation.rotate(y_array, angle, (1,2), order = 0)
 
-        # 2, extract image patch
+        # 3, extract image patch
         #    patch_mode = 0: randomly sample patch with fixed size
         #    patch_mode = 1: crop with 3d bounding box, resize to given 2D size, then sample along z-axis
         patch_mode  = self.config.get('patch_mode', 0)
@@ -248,7 +261,8 @@ class ImageLoader(object):
             y_array = resize_ND_volume_to_given_shape(y_array, new_y_size, order = 0)
             
         [x_array, w_array, y_array] = self.random_sample_patch(x_array, w_array, y_array)
-        # 3, augment by random flip
+        
+        # 4, augment by random flip
         if(self.config.get('flip_w', False) and (random.random() > 0.5)):
             x_array = x_array[:, :, ::-1, :]
             if(w_array is not None):
@@ -262,18 +276,6 @@ class ImageLoader(object):
             if(y_array is not None):
                 y_array = y_array[:, ::-1, :, :]
 
-        # 4, convert label
-        label_source = self.config.get('label_convert_source', None)
-        label_target = self.config.get('label_convert_target', None)
-        if((label_source is not None) and (label_target is not None)):
-            assert(y_array is not None)
-            assert(len(label_source) == len(label_target))
-            label_converted = np.zeros_like(y_array)
-            for i in range(len(label_source)):
-                label_temp = y_array == np.ones_like(y_array)*label_source[i]
-                label_temp = np.asarray(label_temp, np.int32)*label_target[i]
-                label_converted = label_converted + label_temp
-            y_array = label_converted
         return x_array, w_array, y_array
     
 
