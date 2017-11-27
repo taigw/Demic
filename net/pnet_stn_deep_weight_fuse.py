@@ -7,8 +7,8 @@ from niftynet.layer.base_layer import TrainableLayer
 from niftynet.layer.convolution import ConvLayer, ConvolutionalLayer
 from niftynet.layer.elementwise import ElementwiseLayer
 from niftynet.utilities.util_common import look_up_operations
-from net.pnet import PNet
-from net.pnet_stn import MultiSliceSpatialTransform
+from Demic.net.pnet import PNet
+from Demic.net.pnet_stn import MultiSliceSpatialTransform
 
 def fuse_layer_w_initializer():
     def _initializer(shape, dtype, partition_info):
@@ -176,8 +176,8 @@ class PNet_STN_WDF(TrainableLayer):
             output = tf.reduce_sum(output, axis = 1, keep_dims = True)
         else:
             print('slice fusion is false')
-            output = slice_layer(images)
-            output = pnet_layer(output, is_training, bn_momentum)
+#            output = slice_layer(images)
+            output = pnet_layer(images, is_training, bn_momentum)
         return output
 
 if __name__ == '__main__':
