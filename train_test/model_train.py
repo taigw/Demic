@@ -103,8 +103,23 @@ class TrainAgent(object):
         loss_file   = self.config_train['model_save_prefix'] + "_loss.txt"
         start_epoch = self.config_train.get('start_epoch', 0)
         loss_list   = []
-        if( start_epoch> 0):
-            saver.restore(self.sess, self.config_train['pretrained_model'])
+        if( start_epoch > 0):
+            all_vars = tf.global_variables()
+            ignore_var_names = self.config_train.get('ignore_var_names', None)
+            if(ignore_var_names is None):
+                restore_vars = all_vars
+            else:
+                restore_vars = []
+                for var in all_vars:
+                    restore_flag = True
+                    for ignore_name in ignore_var_names:
+                        if(ignore_name in var.name):
+                            restore_flag = False
+                            break
+                    if(restore_flag):
+                        restore_vars.append(var)
+            restore_saver = tf.train.Saver(restore_vars)
+            restore_saver.restore(self.sess, self.config_train['pretrained_model'])
         
         for epoch in range(start_epoch, max_epoch):
             # Initialize iterator with the training dataset
