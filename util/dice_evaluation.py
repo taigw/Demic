@@ -4,8 +4,8 @@ import os
 import sys
 import numpy as np
 from scipy import ndimage
-from util.parse_config import parse_config
-from image_io.file_read_write import load_nifty_volume_as_array
+from Demic.util.parse_config import parse_config
+from Demic.image_io.file_read_write import load_nifty_volume_as_array
 
 def get_largest_component(img):
     s = ndimage.generate_binary_structure(3,1) # iterate structure

@@ -4,6 +4,7 @@ Author: Guotai Wang
 import os
 import sys
 import random
+import nibabel
 import numpy as np
 import tensorflow as tf
 from datetime import datetime
@@ -13,6 +14,12 @@ from niftynet.layer.loss_segmentation import LossFunction as SegmentationLoss
 from Demic.image_io.image_loader import ImageLoader
 from Demic.net.net_factory import NetFactory
 
+def save_array_as_nifty_volume(data, filename):
+    # numpy data shape [D, H, W]
+    # nifty image shape [W, H, W]
+    data = np.transpose(data, [2, 1, 0])
+    img = nibabel.Nifti1Image(data, np.eye(4))
+    nibabel.save(img, filename)
 
 def get_soft_label(input_tensor, num_class):
     """
@@ -165,30 +172,33 @@ class TrainAgent(object):
             self.sess.run(self.train_init_op)
             for step in range(self.config_train['batch_number']):
                 feed_dict = self.get_input_output_feed_dict(is_training = True)
-                feed_dict[self.m] = temp_momentum
-                self.opt_step.run(session = self.sess, feed_dict=feed_dict)
-                if(step < self.config_train['test_steps']):
-                    loss_train = self.loss.eval(feed_dict)
-                    train_loss_list.append(loss_train)
-            batch_loss = np.asarray(train_loss_list, np.float32).mean()
-            epoch_loss = [batch_loss]
-            
-            if(self.config_data.get('data_names_val', None) is not None):
-                valid_loss_list = []
-                self.sess.run(self.valid_init_op)
-                for test_step in range(self.config_train['test_steps']):
-                    feed_dict = self.get_input_output_feed_dict(is_training = False)
-                    feed_dict[self.m] = temp_momentum
-                    loss_valid = self.loss.eval(feed_dict)
-                    valid_loss_list.append(loss_valid)
-                batch_loss = np.asarray(valid_loss_list, np.float32).mean()
-                epoch_loss.append(batch_loss)
-                
-            print("{0:} Epoch {1:}, loss {2:}".format(datetime.now(), epoch+1, epoch_loss))
-            
-            # 4, save loss and snapshot
-            loss_list.append(epoch_loss)
-            np.savetxt(loss_file, np.asarray(loss_list))
-            if((epoch+1)%self.config_train['snapshot_epoch']  == 0):
-                saver.save(self.sess, self.config_train['model_save_prefix']+"_{0:}.ckpt".format(epoch+1))
+                img_0 = feed_dict[self.x][0,:,:,:,0]
+                print(img_0.shape)
+                save_array_as_nifty_volume(img_0, './temp/img{0:}_{1:}.nii'.format(epoch, step))
+#                feed_dict[self.m] = temp_momentum
+#                self.opt_step.run(session = self.sess, feed_dict=feed_dict)
+#                if(step < self.config_train['test_steps']):
+#                    loss_train = self.loss.eval(feed_dict)
+#                    train_loss_list.append(loss_train)
+#            batch_loss = np.asarray(train_loss_list, np.float32).mean()
+#            epoch_loss = [batch_loss]
+#            
+#            if(self.config_data.get('data_names_val', None) is not None):
+#                valid_loss_list = []
+#                self.sess.run(self.valid_init_op)
+#                for test_step in range(self.config_train['test_steps']):
+#                    feed_dict = self.get_input_output_feed_dict(is_training = False)
+#                    feed_dict[self.m] = temp_momentum
+#                    loss_valid = self.loss.eval(feed_dict)
+#                    valid_loss_list.append(loss_valid)
+#                batch_loss = np.asarray(valid_loss_list, np.float32).mean()
+#                epoch_loss.append(batch_loss)
+#                
+#            print("{0:} Epoch {1:}, loss {2:}".format(datetime.now(), epoch+1, epoch_loss))
+#            
+#            # 4, save loss and snapshot
+#            loss_list.append(epoch_loss)
+#            np.savetxt(loss_file, np.asarray(loss_list))
+#            if((epoch+1)%self.config_train['snapshot_epoch']  == 0):
+#                saver.save(self.sess, self.config_train['model_save_prefix']+"_{0:}.ckpt".format(epoch+1))
 

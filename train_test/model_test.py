@@ -9,11 +9,11 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from datetime import datetime
-from net.net_factory import NetFactory
-from image_io.file_read_write import *
-from image_io.convert_to_tfrecords import DataLoader
-from util.parse_config import parse_config
-from util.image_process import resize_ND_volume_to_given_shape
+from Demic.net.net_factory import NetFactory
+from Demic.image_io.file_read_write import *
+from Demic.image_io.convert_to_tfrecords import DataLoader
+from Demic.util.parse_config import parse_config
+from Demic.util.image_process import resize_ND_volume_to_given_shape
 
 def extract_roi_from_nd_volume(volume, roi_center, roi_shape, fill = 'random'):
     '''Extract an roi from a nD volume

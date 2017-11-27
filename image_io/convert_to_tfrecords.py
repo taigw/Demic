@@ -10,8 +10,8 @@ import numpy as np
 import nibabel
 import tensorflow as tf
 
-from util.parse_config import parse_config
-from image_io.file_read_write import load_nifty_volume_as_array
+from Demic.util.parse_config import parse_config
+from Demic.image_io.file_read_write import load_nifty_volume_as_array
 
 def search_file_in_folder_list(folder_list, file_name):
     file_exist = False

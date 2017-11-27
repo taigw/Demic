@@ -123,7 +123,7 @@ class ImageDataGenerator(object):
                 label_temp = tf.equal(label, tf.multiply(l0, tf.ones_like(label)))
                 label_temp = tf.multiply(l1, tf.cast(label_temp,tf.int32))
                 label_converted = tf.add(label_converted, label_temp)
-        label = label_converted
+            label = label_converted
         
         # extract image patch
         patch_mode = self.config.get('patch_mode', 0)
