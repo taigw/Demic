@@ -79,7 +79,7 @@ class Weight_Net(TrainableLayer):
         conv5_list = []
         for i in range(self.num_slices):
             w_initializer = self.initializers['w']
-            if(i == (self.num_slices-1)/2):
+            if(i != (self.num_slices-1)/2):
                 w_initializer = w_initializer_near_zero()
             conv5_i =ConvolutionalLayer(n_output_chns = 1,
                                     kernel_size = [1, 3, 3],
@@ -101,24 +101,6 @@ class Weight_Net(TrainableLayer):
         output = tf.transpose(output, perm = [0, 4, 2, 3, 1])
         return output
 
-class TensorSliceLayer(TrainableLayer):
-    """
-        extract the central part of a tensor
-        """
-    
-    def __init__(self, margin = 1, regularizer=None, name='tensor_extract'):
-        self.layer_name = name
-        super(TensorSliceLayer, self).__init__(name=self.layer_name)
-        self.margin = margin
-    
-    def layer_op(self, input_tensor):
-        input_shape = input_tensor.get_shape().as_list()
-        begin = [0]*len(input_shape)
-        begin[1] = self.margin
-        size = input_shape
-        size[1] = size[1] - 2* self.margin
-        output_tensor = tf.slice(input_tensor, begin, size, name='slice')
-        return output_tensor
 
 class PNet_STN_WDF(TrainableLayer):
     """
@@ -172,11 +154,11 @@ class PNet_STN_WDF(TrainableLayer):
             img_aligned = stn_layer(images, is_training, bn_momentum)
             output = pnet_layer(img_aligned, is_training, bn_momentum)
             weight = weight_layer(img_aligned, is_training, bn_momentum)
+            print(tf.shape(output), tf.shape(weight))
             output = output*weight
             output = tf.reduce_sum(output, axis = 1, keep_dims = True)
         else:
             print('slice fusion is false')
-#            output = slice_layer(images)
             output = pnet_layer(images, is_training, bn_momentum)
         return output
 
