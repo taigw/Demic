@@ -148,7 +148,6 @@ class PNet_STN_WDF(TrainableLayer):
                                   w_regularizer=self.regularizers['w'],
                                   acti_func=self.acti_func,
                                   name = 'weight_layer')
-        slice_layer = TensorSliceLayer(margin = 1)
 
         if (self.parameters['slice_fusion'] == True):
             img_aligned = stn_layer(images, is_training, bn_momentum)
