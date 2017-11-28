@@ -106,17 +106,17 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
     prob = np.zeros([D, H, W, class_num], np.float32)
     sub_image_patches = []
     sub_image_centers = []
-    roid_half = int(label_shape[0]/2)
-    roih_half = int(label_shape[1]/2)
-    roiw_half = int(label_shape[2]/2)
+    roid_half0 = int(label_shape[0]/2); roid_half1 = label_shape[0] - roid_half0
+    roih_half0 = int(label_shape[1]/2); roih_half1 = label_shape[1] - roih_half0
+    roiw_half0 = int(label_shape[2]/2); roiw_half1 = label_shape[2] - roiw_half0
     
     # get image patches
-    for centerd in range(roid_half, D + roid_half, label_shape[0]):
-        centerd = min(centerd, D - roid_half)
-        for centerh in range(roih_half, H + roih_half, label_shape[1]):
-            centerh =  min(centerh, H - roih_half)
-            for centerw in range(roiw_half, W + roiw_half, label_shape[2]):
-                centerw =  min(centerw, W - roiw_half)
+    for centerd in range(roid_half, D + roid_half0, label_shape[0]):
+        centerd = min(centerd, D - 1 - roid_half1)
+        for centerh in range(roih_half, H + roih_half0, label_shape[1]):
+            centerh =  min(centerh, H -1 - roih_half1)
+            for centerw in range(roiw_half, W + roiw_half0, label_shape[2]):
+                centerw =  min(centerw, W -1 - roiw_half1)
                 roi_center = [centerd, centerh, centerw, int(C/2)]
                 sub_image_centers.append(roi_center)
                 sub_image = extract_roi_from_nd_volume(img, roi_center, data_shape, fill = 'random')
