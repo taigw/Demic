@@ -111,7 +111,7 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
     roiw_half0 = int(label_shape[2]/2); roiw_half1 = label_shape[2] - roiw_half0
     
     # get image patches
-    for centerd in range(roid_half0, D + roid_half0, label_shape[0]):
+    for centerd in [10]: #range(roid_half0, D + roid_half0, label_shape[0]):
         centerd = min(centerd, D - roid_half1)
         for centerh in range(roih_half0, H + roih_half0, label_shape[1]):
             centerh =  min(centerh, H - roih_half1)
