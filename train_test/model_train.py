@@ -51,6 +51,16 @@ def soft_dice_loss(prediction, soft_ground_truth, num_class, weight_map=None):
     dice_score = dice_numerator/dice_denominator
     return 1-dice_score
 
+def soft_size_loss(prediction, soft_ground_truth, weight_map = None):
+    pred   = tf.reshape(prediction, [-1, num_class])
+    pred   = tf.nn.softmax(pred)
+    ground = tf.reshape(soft_ground_truth, [-1, num_class])
+    pred_size   = tf.reduce_sum(pred, 0)
+    ground_size = tf.reduce_sum(ground, 0)
+    size_loss   = tf.square(pred_size - ground_size)
+    size_loss   = tf.reduce_sum(size_loss)
+    return size_loss
+
 class TrainAgent(object):
     def __init__(self, config):
         self.config_data = config['tfrecords']
@@ -153,6 +163,7 @@ class SegmentationTrainAgent(TrainAgent):
     def get_output_and_loss(self):
         self.class_num = self.config_net['class_num']
         multi_scale_loss = self.config_train.get('multi_scale_loss', False)
+        size_constraint  = self.config_train.get('size_constraint', False)
         loss_func = SegmentationLoss(n_class=self.class_num)
         if(multi_scale_loss):
             loss_func1 = SegmentationLoss(n_class=self.class_num)
@@ -190,7 +201,10 @@ class SegmentationTrainAgent(TrainAgent):
             predy_pool3 = tf.nn.pool(self.predicty, [1, 12, 12], 'AVG', 'VALID', strides = [1, 12, 12])
             loss3 = soft_dice_loss(predy_pool3, y_pool3, self.class_num)
             self.loss = (self.loss + loss1 + loss2 + loss3)/4.0
-
+        if(size_constraint):
+            print('use size constraint loss')
+            self.loss = self.loss + soft_size_loss(self.predicty, self.y, weight_map = self.w)
+            
     def get_input_output_feed_dict(self):
         [x_batch, w_batch, y_batch] = self.sess.run(self.next_batch)
         feed_dict = {self.x:x_batch, self.w: w_batch, self.y:y_batch}
