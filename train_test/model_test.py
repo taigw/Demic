@@ -112,11 +112,11 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
     
     # get image patches
     for centerd in range(roid_half0, D + roid_half0, label_shape[0]):
-        centerd = min(centerd, D - 1 - roid_half1)
+        centerd = min(centerd, D - roid_half1)
         for centerh in range(roih_half0, H + roih_half0, label_shape[1]):
-            centerh =  min(centerh, H -1 - roih_half1)
+            centerh =  min(centerh, H - roih_half1)
             for centerw in range(roiw_half0, W + roiw_half0, label_shape[2]):
-                centerw =  min(centerw, W -1 - roiw_half1)
+                centerw =  min(centerw, W - roiw_half1)
                 roi_center = [centerd, centerh, centerw, int(C/2)]
                 sub_image_centers.append(roi_center)
                 sub_image = extract_roi_from_nd_volume(img, roi_center, data_shape, fill = 'random')
