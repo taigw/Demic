@@ -212,19 +212,19 @@ class TestAgent:
         self.sess = tf.InteractiveSession()
         self.sess.run(tf.global_variables_initializer())
         all_vars = tf.global_variables()
-            ignore_var_names = self.config_net.get('ignore_var_names', None)
-            if(ignore_var_names is None):
-                restore_vars = all_vars
-            else:
-                restore_vars = []
-                for var in all_vars:
-                    restore_flag = True
-                    for ignore_name in ignore_var_names:
-                        if(ignore_name in var.name):
-                            restore_flag = False
-                            break
-                    if(restore_flag):
-                        restore_vars.append(var)
+        ignore_var_names = self.config_net.get('ignore_var_names', None)
+        if(ignore_var_names is None):
+            restore_vars = all_vars
+        else:
+            restore_vars = []
+            for var in all_vars:
+                restore_flag = True
+                for ignore_name in ignore_var_names:
+                    if(ignore_name in var.name):
+                        restore_flag = False
+                        break
+                if(restore_flag):
+                    restore_vars.append(var)
         saver = tf.train.Saver(restore_vars)
         saver.restore(self.sess, self.config_net['model_file'])
         
