@@ -55,13 +55,15 @@ def soft_size_loss(prediction, soft_ground_truth, num_class, weight_map = None):
     pred   = tf.reshape(prediction, [-1, num_class])
     pred   = tf.nn.softmax(pred)
     ground = tf.reshape(soft_ground_truth, [-1, num_class])
+    n = tf.shape(pred)
+    n = tf.cast(tf.reduce_prod(n), tf.float32)
     pred_size   = tf.reduce_sum(pred, 0)
+    pred_size   = tf.div(pred_size, n)
     ground_size = tf.reduce_sum(ground, 0)
+    ground_size = tf.div(ground_size, n)
     size_loss   = tf.square(pred_size - ground_size)
     size_loss   = tf.reduce_sum(size_loss)
-    n = tf.shape(pred)
-    n = tf.reduce_prod(n)
-    size_loss = tf.div(size_loss, tf.cast(n, tf.float32))
+    size_loss   = size_loss/num_class
     return size_loss
 
 class TrainAgent(object):
