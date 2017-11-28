@@ -124,7 +124,7 @@ class TrainAgent(object):
         for epoch in range(start_epoch, max_epoch):
             # Initialize iterator with the training dataset
             self.sess.run(self.training_init_op)
-            temp_momentum = float(epoch)/float(max_epoch)
+            temp_momentum = float(epoch-start_epoch)/float(max_epoch-start_epoch)
             
             for step in range(self.config_train['batch_number']):
                 feed_dict = self.get_input_output_feed_dict()
