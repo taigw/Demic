@@ -212,7 +212,7 @@ class TestAgent:
         self.sess = tf.InteractiveSession()
         self.sess.run(tf.global_variables_initializer())
         all_vars = tf.global_variables()
-            ignore_var_names = self.config_train.get('ignore_var_names', None)
+            ignore_var_names = self.config_net.get('ignore_var_names', None)
             if(ignore_var_names is None):
                 restore_vars = all_vars
             else:
