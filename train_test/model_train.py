@@ -59,6 +59,9 @@ def soft_size_loss(prediction, soft_ground_truth, num_class, weight_map = None):
     ground_size = tf.reduce_sum(ground, 0)
     size_loss   = tf.square(pred_size - ground_size)
     size_loss   = tf.reduce_sum(size_loss)
+    n = tf.shape(pred)
+    n = tf.reduce_prod(n)
+    size_loss = tf.div(size_loss, tf.cast(n, tf.float32))
     return size_loss
 
 class TrainAgent(object):
