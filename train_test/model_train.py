@@ -51,7 +51,7 @@ def soft_dice_loss(prediction, soft_ground_truth, num_class, weight_map=None):
     dice_score = dice_numerator/dice_denominator
     return 1-dice_score
 
-def soft_size_loss(prediction, soft_ground_truth, weight_map = None):
+def soft_size_loss(prediction, soft_ground_truth, num_class, weight_map = None):
     pred   = tf.reshape(prediction, [-1, num_class])
     pred   = tf.nn.softmax(pred)
     ground = tf.reshape(soft_ground_truth, [-1, num_class])
@@ -203,7 +203,7 @@ class SegmentationTrainAgent(TrainAgent):
             self.loss = (self.loss + loss1 + loss2 + loss3)/4.0
         if(size_constraint):
             print('use size constraint loss')
-            self.loss = self.loss + soft_size_loss(self.predicty, self.y, weight_map = self.w)
+            self.loss = self.loss + soft_size_loss(self.predicty, self.y, self.class_num, weight_map = self.w)
             
     def get_input_output_feed_dict(self):
         [x_batch, w_batch, y_batch] = self.sess.run(self.next_batch)
