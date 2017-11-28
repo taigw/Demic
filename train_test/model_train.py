@@ -203,7 +203,8 @@ class SegmentationTrainAgent(TrainAgent):
             self.loss = (self.loss + loss1 + loss2 + loss3)/4.0
         if(size_constraint):
             print('use size constraint loss')
-            self.loss = self.loss + soft_size_loss(self.predicty, self.y, self.class_num, weight_map = self.w)
+            y_soft  = get_soft_label(self.y, self.class_num)
+            self.loss = self.loss + soft_size_loss(self.predicty, y_soft, self.class_num, weight_map = self.w)
             
     def get_input_output_feed_dict(self):
         [x_batch, w_batch, y_batch] = self.sess.run(self.next_batch)
