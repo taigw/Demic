@@ -135,11 +135,11 @@ class PNet_STN_DF(TrainableLayer):
                           w_regularizer=self.regularizers['w'],
                           acti_func=self.acti_func,
                           name = 'pnet_layer')
-        fuse_layer = Weight_Net(self.num_classes,
-                                  w_initializer=self.initializers['w'],
-                                  w_regularizer=self.regularizers['w'],
-                                  acti_func=self.acti_func,
-                                  name = 'fuse_layer')
+        fuse_layer = Fuse_Net(self.num_classes,
+                          w_initializer=self.initializers['w'],
+                          w_regularizer=self.regularizers['w'],
+                          acti_func=self.acti_func,
+                          name = 'fuse_layer')
 
         if (self.parameters['slice_fusion'] == True):
             aligned = stn_layer(images, is_training, bn_momentum)
