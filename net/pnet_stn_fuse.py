@@ -8,7 +8,7 @@ from niftynet.layer.convolution import ConvLayer, ConvolutionalLayer
 from niftynet.layer.elementwise import ElementwiseLayer
 from niftynet.utilities.util_common import look_up_operations
 from Demic.net.pnet import PNet
-from Demic.net.pnet_stn import MultiSliceSpatialTransform
+from Demic.net.stn_net import MultiSliceSpatialTransform
 
 def fuse_layer_w_initializer():
     def _initializer(shape, dtype, partition_info):
