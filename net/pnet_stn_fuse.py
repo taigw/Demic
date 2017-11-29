@@ -48,7 +48,7 @@ class Fuse_Net(TrainableLayer):
         self.parameters   = parameters
         self.acti_func    = acti_func
         self.num_classes  = num_classes
-        self.n_features   = [16, 16, 16, 16]
+        self.n_features   = [64, 64, 64, 64]
         self.dilations    = [1,  2,  3,  1]
         self.initializers = {'w': w_initializer, 'b': b_initializer}
         self.regularizers = {'w': w_regularizer, 'b': b_regularizer}
