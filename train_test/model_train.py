@@ -91,12 +91,30 @@ class TrainAgent(object):
         self.m = tf.placeholder(tf.float32, shape = []) # momentum for batch normalization
         self.get_output_and_loss()
 
+    def get_variable_list(self, ignore_var_names):
+        all_vars = tf.global_variables()
+        if(ignore_var_names is None):
+            output_vars = all_vars
+        else:
+            output_vars = []
+            for var in all_vars:
+                output_flag = True
+                for ignore_name in ignore_var_names:
+                    if(ignore_name in var.name):
+                        output_flag = False
+                        break
+                if(output_flag):
+                    output_vars.append(var)
+        return output_vars
+        
     def create_optimization_step_and_data_generator(self):
-        lr = self.config_train.get('learning_rate', 1e-3)
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS) # for batch normalization
+        learn_rate  = self.config_train.get('learning_rate', 1e-3)
+        vars_fixed  = self.config_train.get('vars_not_update', None)
+        vars_update = self.get_variable_list(vars_fixed)
+        update_ops  = tf.get_collection(tf.GraphKeys.UPDATE_OPS) # for batch normalization
         with tf.control_dependencies(update_ops):
-            self.opt_step = tf.train.AdamOptimizer(lr).minimize(self.loss)
-
+            self.opt_step = tf.train.AdamOptimizer(learn_rate).minimize(self.loss, var_list = vars_update)
+        
         # Place data loading and preprocessing on the cpu
         with tf.device('/cpu:0'):
             self.data_agent = ImageDataGenerator(self.config_data)
@@ -118,20 +136,8 @@ class TrainAgent(object):
         start_epoch = self.config_train.get('start_epoch', 0)
         loss_list   = []
         if( start_epoch > 0):
-            all_vars = tf.global_variables()
-            ignore_var_names = self.config_train.get('ignore_var_names', None)
-            if(ignore_var_names is None):
-                restore_vars = all_vars
-            else:
-                restore_vars = []
-                for var in all_vars:
-                    restore_flag = True
-                    for ignore_name in ignore_var_names:
-                        if(ignore_name in var.name):
-                            restore_flag = False
-                            break
-                    if(restore_flag):
-                        restore_vars.append(var)
+            vars_not_load = self.config_train.get('vars_not_load', None)
+            restore_vars  = self.get_variable_list(vars_not_load)
             restore_saver = tf.train.Saver(restore_vars)
             restore_saver.restore(self.sess, self.config_train['pretrained_model'])
         
