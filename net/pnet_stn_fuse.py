@@ -147,10 +147,10 @@ class PNet_STN_DF(TrainableLayer):
             
             [N, D, H, W, C] = self.input_shape
             aligned_reshape = tf.transpose(aligned, perm = [0, 2, 3, 1, 4])
-            aligned_reshape = tf.reshape(aligned_reshape, [D, 1, H, W, -1])
+            aligned_reshape = tf.reshape(aligned_reshape, [N, 1, H, W, -1])
             
             output0_reshape = tf.transpose(output0, perm = [0, 2, 3, 1, 4])
-            output0_reshape = tf.reshape(output0_reshape, [D, 1, H, W, -1])
+            output0_reshape = tf.reshape(output0_reshape, [N, 1, H, W, -1])
             
             fuse_input = tf.concat([aligned_reshape, output0_reshape], axis = -1)
             output = fuse_layer(fuse_input, is_training, bn_momentum)
