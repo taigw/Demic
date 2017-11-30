@@ -71,11 +71,12 @@ def soft_size_loss(prediction, soft_ground_truth, num_class, weight_map = None):
     grnd = tf.reshape(soft_ground_truth, [-1, num_class])
 
     n_pixel   = tf.cast(tf.reduce_prod(tf.shape(pred))/num_class, tf.float32)
-    pred_size = tf.reduce_sum(pred, 0)/n_pixel
-    grnd_size = tf.reduce_sum(grnd, 0)/n_pixel
+    pred_size = tf.div(tf.reduce_sum(pred, 0), n_pixel)
+    grnd_size = tf.div(tf.reduce_sum(grnd, 0), n_pixel)
     size_loss = tf.square(pred_size - grnd_size)
+    size_loss = size_loss*tf.constant([0] + [1]*(num_class-1))
     size_loss = tf.reduce_sum(size_loss)
-    size_loss = size_loss/num_class
+    size_loss = tf.div(size_loss, (num_class -1))
 
     return size_loss
 
