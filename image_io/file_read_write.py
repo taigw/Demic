@@ -3,7 +3,7 @@ import numpy as np
 import nibabel
 
 
-def load_nifty_volume_as_array(filename, with_spacing):
+def load_nifty_volume_as_array(filename, with_spacing=False):
     """Read a nifty image and return data array
     input shape [W, H, D]
     output shape [D, H, W]
