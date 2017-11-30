@@ -51,7 +51,7 @@ def soft_dice_loss(prediction, soft_ground_truth, num_class, weight_map=None):
     dice_score = dice_numerator/dice_denominator
     return 1-dice_score
 
-def soft_size_loss(prediction, soft_ground_truth, num_class, weight_map = None):
+def soft_size_loss1(prediction, soft_ground_truth, num_class, weight_map = None):
     pred = tf.reshape(prediction, [-1, num_class])
     pred = tf.nn.softmax(pred)
     grnd = tf.reshape(soft_ground_truth, [-1, num_class])
@@ -64,6 +64,20 @@ def soft_size_loss(prediction, soft_ground_truth, num_class, weight_map = None):
     size_loss = tf.reduce_sum(size_loss)
     size_loss = tf.div(size_loss, num_class)
     return 1-size_loss
+
+def soft_size_loss(prediction, soft_ground_truth, num_class, weight_map = None):
+    pred = tf.reshape(prediction, [-1, num_class])
+    pred = tf.nn.softmax(pred)
+    grnd = tf.reshape(soft_ground_truth, [-1, num_class])
+
+    n_pixel   = tf.cast(tf.reduce_prod(tf.shape(pred))/num_class, tf.float32)
+    pred_size = tf.reduce_sum(pred, 0)/n_pixel
+    grnd_size = tf.reduce_sum(grnd, 0)/n_pixel
+    size_loss = tf.square(pred_size - grnd_size)
+    size_loss = tf.reduce_sum(size_loss)
+    size_loss = size_loss/num_class
+
+    return size_loss
 
 class TrainAgent(object):
     def __init__(self, config):
