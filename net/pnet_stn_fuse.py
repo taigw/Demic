@@ -58,25 +58,25 @@ class Fuse_Net(TrainableLayer):
     def layer_op(self, images, is_training, bn_momentum=0.9, layer_id=-1):
         conv1 = ConvolutionalLayer(n_output_chns = self.n_features[0],
                                  kernel_size = [1, 3, 3],
-                                 dilation = [1, self.dilations[0]],
+                                 dilation = [1, self.dilations[0], self.dilations[0]],
                                  w_initializer=self.initializers['w'],
                                  w_regularizer=self.regularizers['w'],
                                  name='conv1')
         conv2 = ConvolutionalLayer(n_output_chns = self.n_features[1],
                                  kernel_size = [1, 3, 3],
-                                 dilation = [1, self.dilations[1]],
+                                 dilation = [1, self.dilations[1], self.dilations[1]],
                                  w_initializer=self.initializers['w'],
                                  w_regularizer=self.regularizers['w'],
                                  name='conv2')
         conv3 = ConvolutionalLayer(n_output_chns = self.n_features[2],
                                  kernel_size = [1, 3, 3],
-                                 dilation = [1, self.dilations[2]],
+                                 dilation = [1, self.dilations[2], self.dilations[2]],
                                  w_initializer=self.initializers['w'],
                                  w_regularizer=self.regularizers['w'],
                                  name='conv3')
         conv4 = ConvolutionalLayer(n_output_chns = self.n_features[3],
                                  kernel_size = [1, 3, 3],
-                                 dilation = [1, self.dilations[3]],
+                                 dilation = [1, self.dilations[3], self.dilations[3]],
                                  w_initializer=self.initializers['w'],
                                  w_regularizer=self.regularizers['w'],
                                  name='conv4')
