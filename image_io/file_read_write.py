@@ -3,7 +3,7 @@ import numpy as np
 import nibabel
 
 
-def load_nifty_volume_as_array(filename):
+def load_nifty_volume_as_array(filename, with_spacing):
     """Read a nifty image and return data array
     input shape [W, H, D]
     output shape [D, H, W]
@@ -11,6 +11,10 @@ def load_nifty_volume_as_array(filename):
     img = nibabel.load(filename)
     data = img.get_data()
     data = np.transpose(data, [2,1,0])
+    if(with_spacing):
+        spacing = img.header.get_zooms()
+        spacing = [spacing[2], spacing[1], spacing[0]]
+        return data, spacing
     return data
 
 
