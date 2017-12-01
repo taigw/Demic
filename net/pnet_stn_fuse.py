@@ -142,7 +142,10 @@ class PNet_STN_DF(TrainableLayer):
                           name = 'fuse_layer')
 
         if (self.parameters['slice_fusion'] == True):
-            aligned = stn_layer(images, is_training, bn_momentum)
+            if(self.parameters['use_stn'] == True):
+                aligned = stn_layer(images, is_training, bn_momentum)
+            else:
+                aligned = images
             output0 = pnet_layer(aligned, is_training, bn_momentum)
             
             [N, D, H, W, C] = self.input_shape
