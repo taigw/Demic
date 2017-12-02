@@ -9,6 +9,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from datetime import datetime
+from tensorflow.contrib.data import Iterator
 from Demic.net.net_factory import NetFactory
 from Demic.image_io.image_loader import ImageLoader
 from Demic.image_io.file_read_write import *
@@ -200,9 +201,14 @@ class TestAgent:
                 'features': {'x': self.config_net['patch_shape_x'],
                              'w': self.config_net['patch_shape_y']},
                 'labels':   {'y': self.config_net['patch_shape_y']}}
+
         data_agent = ImageLoader(self.config_data)
         self.test_dataset = data_agent.get_dataset('test')
-        
+#            test_iterator = Iterator.from_structure(test_dataset.output_types,
+#                                               test_dataset.output_shapes)
+#            self.next_test_batch = test_iterator.get_next()
+#        self.test_init_op = test_iterator.make_initializer(test_dataset)
+
     def test_one_volume(self, img):
         # 1, caulculate shape of tensors
         batch_size = self.config_test.get('batch_size', 1)
@@ -278,12 +284,14 @@ class TestAgent:
         label_target = self.config_data.get('label_convert_target', None)
         if(not(label_source is None) and not(label_source is None)):
             assert(len(label_source) == len(label_target))
-        for one_data in self.test_dataset:
-            img  = one_data['features']['x']
-            name = one_data['features']['name']
-            pred = self.test_one_volume(img)
-            if (label_source is not None and label_target is not None):
-                pred = convert_label(pred, label_source, label_target)
-            save_name = '{0:}_{1:}.nii.gz'.format(name, self.config_data['output_postfix'])
-            save_array_as_nifty_volume(pred, self.config_data['save_root']+'/'+save_name)
 
+        for one_data in self.test_dataset:
+            img  = one_data['image']
+            name = one_data['name']
+            print(img.shape, name)
+#            pred = self.test_one_volume(img)
+#            if (label_source is not None and label_target is not None):
+#                pred = convert_label(pred, label_source, label_target)
+#            save_name = '{0:}_{1:}.nii.gz'.format(name, self.config_data['output_postfix'])
+#            save_array_as_nifty_volume(pred, self.config_data['save_root']+'/'+save_name)
+#

@@ -1,7 +1,25 @@
-
-import numpy as np
+import os
 import nibabel
+import numpy as np
 
+
+def search_file_in_folder_list(folder_list, file_name):
+    """ search a file with a part of name in a list of folders
+    input:
+        folder_list: a list of folders
+        file_name:   a substring of a file
+    output:
+        the full file name
+    """
+    file_exist = False
+    for folder in folder_list:
+        full_file_name = os.path.join(folder, file_name)
+        if(os.path.isfile(full_file_name)):
+            file_exist = True
+            break
+    if(file_exist == False):
+        raise ValueError('file not exist: {0:}'.format(file_name))
+    return full_file_name
 
 def load_nifty_volume_as_array(filename, with_spacing=False):
     """Read a nifty image and return data array

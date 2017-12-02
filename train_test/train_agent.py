@@ -73,11 +73,11 @@ class TrainAgent(object):
             one_batch = self.sess.run(self.next_train_batch)
         else:
             one_batch = self.sess.run(self.next_valid_batch)
-        feed_dict = {self.x:one_batch['features']['x'],
-                     self.w:one_batch['features']['w'],
-                     self.y:one_batch['labels']['y']}
+        feed_dict = {self.x:one_batch['image'],
+                     self.w:one_batch['weight'],
+                     self.y:one_batch['label']}
         return feed_dict
-    
+
     def construct_network(self):
         # 1, get input and output shape
         self.batch_size      = self.config_train.get('batch_size', 5)
