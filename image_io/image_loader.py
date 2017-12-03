@@ -21,36 +21,36 @@ class ImageLoader(object):
     def __init__(self, config):
         self.config = config
         # data information
-        self.data_type  = config['data_type']
-        self.data_shape = config['data_shape']
         self.data_root  = config['data_root']
+        self.patch_data_type   = config['patch_type_x']
+        self.patch_label_type  = config['patch_type_y']
+        self.patch_data_shape  = config['patch_shape_x']
+        self.patch_label_shape = config['patch_shape_y']
         self.label_convert_source = self.config.get('label_convert_source', None)
         self.label_convert_target = self.config.get('label_convert_target', None)
-        self.modality_postfix = config['modality_postfix']
-        self.with_ground_truth  = config.get('with_ground_truth', False)
-        self.with_weight = config.get('with_weight', False)
+        self.modality_postfix     = config['modality_postfix']
+        self.with_ground_truth   = config.get('with_ground_truth', False)
+        self.with_weight    = config.get('with_weight', False)
         self.label_postfix  = config.get('label_postfix', None)
         self.weight_postfix = config.get('weight_postfix', None)
-        self.file_postfix = config['file_postfix']
-        self.data_names   = config.get('data_names', None)
+        self.file_postfix   = config['file_postfix']
+        self.data_names     = config.get('data_names', None)
         self.data_names_val = config.get('data_names_val', None)
-        self.batch_size = config.get('batch_size', 5)
+        self.batch_size     = config.get('batch_size', 5)
         
         self.replace_background_with_random = config.get('replace_background_with_random', False)
         self.__check_image_patch_shape()
 
     def __check_image_patch_shape(self):
-        data_shape   = self.data_shape['features']['x']
-        label_shape  = self.data_shape['labels']['y']
-        assert(len(data_shape) == 4 and len(label_shape) == 4)
-        label_margin = []
+        assert(len(self.patch_data_shape) == 4 and len(self.patch_label_shape) == 4)
+        patch_label_margin = []
         for i in range(3):
-            assert(data_shape[i] >= label_shape[i])
-            margin = (data_shape[i] - label_shape[i]) % 2
-            assert( margin == 0)
-            label_margin.append(margin)
-        label_margin.append(0)
-        self.label_margin = label_margin
+            assert(self.patch_data_shape[i] >= self.patch_label_shape[i])
+            margin = (self.patch_data_shape[i] - self.patch_label_shape[i])
+            assert( margin % 2 == 0)
+            patch_label_margin.append(int(margin/2))
+        patch_label_margin.append(0)
+        self.patch_label_margin = patch_label_margin
 
     def __get_patient_names(self, mode):
         """
@@ -95,7 +95,6 @@ class ImageLoader(object):
             full_patient_names.append(one_patient_names)
         return patient_names, full_patient_names
 
-
     def __load_volumes(self, image_dict):
         """A function used for data map from image names to image arrays
         inputs:
@@ -134,13 +133,13 @@ class ImageLoader(object):
         """
         img_shape_in  = tf.shape(img)
         lab_shape_in  = tf.shape(lab)
-        img_shape_out = self.config['data_shape']['features']['x']
-        lab_shape_out = self.config['data_shape']['labels']['y']
+        img_shape_out = self.patch_data_shape
+        lab_shape_out = self.patch_label_shape
         # if output shape is larger than input shape, padding is needed
         img = pad_tensor_to_desired_shape(img, img_shape_out)
-        lab = pad_tensor_to_desired_shape(lab, lab_shape_out)
+        lab = pad_tensor_to_desired_shape(lab, img_shape_out[:-1] + [lab_shape_out[-1]])
 
-        lab_margin    = tf.constant(self.label_margin)
+        lab_margin    = tf.constant(self.patch_label_margin)
         img_shape_sub = tf.subtract(img_shape_in, img_shape_out)
         
         r = tf.random_uniform(tf.shape(img_shape_sub), 0, 1.0)
@@ -155,7 +154,7 @@ class ImageLoader(object):
         lab_slice = tf.slice(lab, lab_begin, lab_shape_out)
 
         if(wht is not None):
-            wht = pad_tensor_to_desired_shape(wht, lab_shape_out)
+            wht = pad_tensor_to_desired_shape(wht, img_shape_out[:-1] + [lab_shape_out[-1]])
             wht_slice = tf.slice(wht, lab_begin, lab_shape_out)
         else:
             wht_slice = None
@@ -214,7 +213,7 @@ class ImageLoader(object):
             image  = crop_4d_tensor_with_bounding_box(image, min_idx, max_idx)
             label  = crop_4d_tensor_with_bounding_box(label, min_idx, max_idx)
             
-            new_2d_size = tf.constant(self.config['data_shape'][1:3])
+            new_2d_size = tf.constant(self.config['patch_shape_x'][1:3])
             image  = tf.image.resize_images(image, new_2d_size, method = 0) # bilinear
             label  = tf.image.resize_images(label, new_2d_size, method = 1) # nearest
             if(weight is not None):
@@ -230,7 +229,13 @@ class ImageLoader(object):
             [image, weight, label] = random_flip_tensors_in_one_dim([image, weight, label], 1)
         if(weight is None):
             weight = tf.ones_like(label, tf.float32)
-            
+
+        # 5, cast tensor to desired type
+        data_type  = tf.float32 if self.patch_data_type=='float32' else tf.int32
+        label_type = tf.float32 if self.patch_label_type=='float32' else tf.int32
+        image  = tf.cast(image, data_type)
+        weight = tf.cast(weight,data_type)
+        label  = tf.cast(label, label_type)
         output_dict = {'image': image, 'weight': weight, 'label': label}
         return output_dict
 

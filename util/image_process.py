@@ -90,3 +90,77 @@ def crop_ND_volume_with_bounding_box(volume, min_idx, max_idx):
     else:
         raise ValueError("the dimension number shoud be 2 to 5")
     return output
+
+def extract_roi_from_nd_volume(volume, roi_center, roi_shape, fill = 'random'):
+    '''Extract an roi from a nD volume
+        volume      : input nD numpy array
+        roi_center  : center of roi with position
+        output_shape: shape of roi
+        '''
+    input_shape = volume.shape
+    if(fill == 'random'):
+        output = np.random.normal(0, 1, size = roi_shape)
+    else:
+        output = np.zeros(roi_shape)
+    r0max = [int(x/2) for x in roi_shape]
+    r1max = [roi_shape[i] - r0max[i] for i in range(len(r0max))]
+    r0 = [min(r0max[i], roi_center[i]) for i in range(len(r0max))]
+    r1 = [min(r1max[i], input_shape[i] - roi_center[i]) for i in range(len(r0max))]
+    out_center = r0max
+    if(len(roi_center)==3):
+        output[np.ix_(range(out_center[0] - r0[0], out_center[0] + r1[0]),
+                      range(out_center[1] - r0[1], out_center[1] + r1[1]),
+                      range(out_center[2] - r0[2], out_center[2] + r1[2]))] = \
+        volume[np.ix_(range(roi_center[0] - r0[0], roi_center[0] + r1[0]),
+                    range(roi_center[1] - r0[1], roi_center[1] + r1[1]),
+                    range(roi_center[2] - r0[2], roi_center[2] + r1[2]))]
+    elif(len(roi_center)==4):
+        output[np.ix_(range(out_center[0] - r0[0], out_center[0] + r1[0]),
+                      range(out_center[1] - r0[1], out_center[1] + r1[1]),
+                      range(out_center[2] - r0[2], out_center[2] + r1[2]),
+                      range(out_center[3] - r0[3], out_center[3] + r1[3]))] = \
+        volume[np.ix_(range(roi_center[0] - r0[0], roi_center[0] + r1[0]),
+                      range(roi_center[1] - r0[1], roi_center[1] + r1[1]),
+                      range(roi_center[2] - r0[2], roi_center[2] + r1[2]),
+                      range(roi_center[3] - r0[3], roi_center[3] + r1[3]))]
+    else:
+        raise ValueError("array dimension should be 3 or 4")
+    return output
+
+def set_roi_to_nd_volume(volume, roi_center, sub_volume):
+    '''Set an roi of an ND volume with a sub volume
+        volume: an ND numpy array
+        roi_center: center of roi
+        sub_volume: the sub volume that will be copied
+        '''
+    volume_shape = volume.shape
+    patch_shape  = sub_volume.shape
+    output_volume = volume
+    for i in range(len(roi_center)):
+        if(roi_center[i] >= volume_shape[i]):
+            return output_volume
+    r0max = [int(x/2) for x in patch_shape]
+    r1max = [patch_shape[i] - r0max[i] for i in range(len(r0max))]
+    r0 = [min(r0max[i], roi_center[i]) for i in range(len(r0max))]
+    r1 = [min(r1max[i], volume_shape[i] - roi_center[i]) for i in range(len(r0max))]
+    patch_center = r0max
+
+    if(len(roi_center) == 3):
+        output_volume[np.ix_(range(roi_center[0] - r0[0], roi_center[0] + r1[0]),
+                             range(roi_center[1] - r0[1], roi_center[1] + r1[1]),
+                             range(roi_center[2] - r0[2], roi_center[2] + r1[2]))] = \
+        sub_volume[np.ix_(range(patch_center[0] - r0[0], patch_center[0] + r1[0]),
+                          range(patch_center[1] - r0[1], patch_center[1] + r1[1]),
+                          range(patch_center[2] - r0[2], patch_center[2] + r1[2]))]
+    elif(len(roi_center) == 4):
+        output_volume[np.ix_(range(roi_center[0] - r0[0], roi_center[0] + r1[0]),
+                             range(roi_center[1] - r0[1], roi_center[1] + r1[1]),
+                             range(roi_center[2] - r0[2], roi_center[2] + r1[2]),
+                             range(roi_center[3] - r0[3], roi_center[3] + r1[3]))] = \
+        sub_volume[np.ix_(range(patch_center[0] - r0[0], patch_center[0] + r1[0]),
+                          range(patch_center[1] - r0[1], patch_center[1] + r1[1]),
+                          range(patch_center[2] - r0[2], patch_center[2] + r1[2]),
+                          range(patch_center[3] - r0[3], patch_center[3] + r1[3]))]
+    else:
+        raise ValueError("array dimension should be 3 or 4")
+    return output_volume
