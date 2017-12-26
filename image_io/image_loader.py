@@ -131,15 +131,15 @@ class ImageLoader(object):
             The output size of img_slice and label_slice may not be the same. 
             image, weight and label are sampled with the same central voxel.
         """
-        img_shape_in  = tf.shape(img)
-        lab_shape_in  = tf.shape(lab)
+        # if output shape is larger than input shape, padding is needed
         img_shape_out = self.patch_data_shape
         lab_shape_out = self.patch_label_shape
-        # if output shape is larger than input shape, padding is needed
         img = pad_tensor_to_desired_shape(img, img_shape_out)
         lab = pad_tensor_to_desired_shape(lab, img_shape_out[:-1] + [lab_shape_out[-1]])
 
         lab_margin    = tf.constant(self.patch_label_margin)
+        img_shape_in  = tf.shape(img)
+        lab_shape_in  = tf.shape(lab)
         img_shape_sub = tf.subtract(img_shape_in, img_shape_out)
         
         r = tf.random_uniform(tf.shape(img_shape_sub), 0, 1.0)
