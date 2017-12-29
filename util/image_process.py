@@ -91,6 +91,25 @@ def crop_ND_volume_with_bounding_box(volume, min_idx, max_idx):
         raise ValueError("the dimension number shoud be 2 to 5")
     return output
 
+def set_ND_volume_roi_with_bounding_box_range(volume, bb_min, bb_max, sub_volume):
+    dim = len(bb_min)
+    out = volume
+    if(dim == 2):
+        out[np.ix_(range(bb_min[0], bb_max[0] + 1),
+                   range(bb_min[1], bb_max[1] + 1))] = sub_volume
+    elif(dim == 3):
+        out[np.ix_(range(bb_min[0], bb_max[0] + 1),
+                   range(bb_min[1], bb_max[1] + 1),
+                   range(bb_min[2], bb_max[2] + 1))] = sub_volume
+    elif(dim == 4):
+        out[np.ix_(range(bb_min[0], bb_max[0] + 1),
+                   range(bb_min[1], bb_max[1] + 1),
+                   range(bb_min[2], bb_max[2] + 1),
+                   range(bb_min[3], bb_max[3] + 1))] = sub_volume
+    else:
+        raise ValueError("array dimension should be 2, 3 or 4")
+    return out
+
 def extract_roi_from_nd_volume(volume, roi_center, roi_shape, fill = 'random'):
     '''Extract an roi from a nD volume
         volume      : input nD numpy array

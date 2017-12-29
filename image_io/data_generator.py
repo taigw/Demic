@@ -35,18 +35,18 @@ class ImageDataGenerator(object):
 
     Requires Tensorflow >= version 1.12rc0
     """
-    def __init__(self, config):
+    def __init__(self, data_files, sampler_config):
         """ Create a new ImageDataGenerator.
         
         Receives a configure dictionary, which specify how to load the data
         """
-        self.config = config
+        self.config = sampler_config
         self.__check_image_patch_shape()
         batch_size = self.config['batch_size']
         self.label_convert_source = self.config.get('label_convert_source', None)
         self.label_convert_target = self.config.get('label_convert_target', None)
         
-        data = TFRecordDataset(self.config['tfrecords_filename'],"ZLIB")
+        data = TFRecordDataset(data_files,"ZLIB")
         data = data.map(self._parse_function, num_threads=5,
                         output_buffer_size=20*batch_size)
         if(self.config.get('data_shuffle', False)):

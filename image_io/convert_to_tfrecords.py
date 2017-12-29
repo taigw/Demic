@@ -116,15 +116,15 @@ class DataLoader():
     def get_image_number(self):
         return len(self.patient_names)
 
-    def get_image(self, idx, with_ground_truth = False):
+    def get_image(self, idx, with_ground_truth = True):
         if(with_ground_truth and self.with_ground_truth):
             label = self.label[idx]
         else:
-            label = []
+            label = None
         if(self.with_weight):
             weight = self.weight[idx]
         else:
-            weight = []
+            weight = None
         output = [self.patient_names[idx], self.data[idx], weight, label]
         return output
 
