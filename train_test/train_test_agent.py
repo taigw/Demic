@@ -1,4 +1,4 @@
-"""Script for training
+"""Script for training and testing
 Author: Guotai Wang
 """
 import os

@@ -13,7 +13,7 @@ from Demic.net.net_factory import NetFactory
 from Demic.image_io.file_read_write import *
 from Demic.image_io.convert_to_tfrecords import DataLoader
 from Demic.util.parse_config import parse_config
-from Demic.util.image_process import resize_ND_volume_to_given_shape
+from Demic.util.image_process import *
 
 def extract_roi_from_nd_volume(volume, roi_center, roi_shape, fill = 'random'):
     '''Extract an roi from a nD volume
@@ -138,6 +138,27 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
             prob = set_roi_to_nd_volume(prob, roi_center, prob_mini_batch[batch_idx-batch_start_idx])
     return prob
 
+def get_augment_prediction(pad_img, data_shape, label_shape,
+                           class_num, batch_size, sess, x, proby):
+    outputp = volume_probability_prediction_3d_roi(pad_img, data_shape, label_shape,
+                                               class_num, batch_size, sess, x, proby)
+    flip1 = np.flip(pad_img, axis = 2)
+    outputp1 = volume_probability_prediction_3d_roi(flip1, data_shape, label_shape,
+                                               class_num, batch_size, sess, x, proby)
+    outputp1 = np.flip(outputp1, axis = 2)
+    
+    flip2 = np.flip(pad_img, axis = 1)
+    outputp2 = volume_probability_prediction_3d_roi(flip2, data_shape, label_shape,
+                                               class_num, batch_size, sess, x, proby)
+    outputp2 = np.flip(outputp2, axis = 1)
+    
+    flip3 = np.flip(flip1, axis = 1)
+    outputp3 = volume_probability_prediction_3d_roi(flip3, data_shape, label_shape,
+                                               class_num, batch_size, sess, x, proby)
+    outputp3 = np.flip(outputp3, axis = 1)
+    outputp3 = np.flip(outputp3, axis = 2)
+    return (outputp + outputp1 + outputp2 + outputp3)/4
+
 def convert_label(in_volume, label_convert_source, label_convert_target):
     mask_volume = np.zeros_like(in_volume)
     convert_volume = np.zeros_like(in_volume)
@@ -166,7 +187,7 @@ class TestAgent:
                              b_regularizer = None,
                              name = self.config_net['net_name'])
 
-    def test_one_volume(self, img):
+    def test_one_volume(self, img, test_augment = False):
         # calculate shape of tensors
         batch_size = self.config_test.get('batch_size', 1)
         data_shape = self.config_net['data_shape']
@@ -205,7 +226,7 @@ class TestAgent:
         # construct graph
         x = tf.placeholder(tf.float32, shape = full_data_shape)
         print('network input', x)
-        predicty = self.net(x, is_training = False, bn_momentum = 1.0)
+        predicty = self.net(x, is_training = True, bn_momentum = 0.0)
         print('network output shape ', predicty)
         proby = tf.nn.softmax(predicty)
 
@@ -229,13 +250,16 @@ class TestAgent:
         saver.restore(self.sess, self.config_net['model_file'])
         
         # inference
-        outputp = volume_probability_prediction_3d_roi(pad_img, data_shape, label_shape,
-                                                       class_num, batch_size, self.sess, x, proby)
-        outputy = np.asarray(np.argmax(outputp, axis = 3), np.uint16)
-        outputy = outputy[np.ix_(range(D), range(H), range(W))]
+        if(test_augment):
+            outputp = get_augment_prediction(pad_img, data_shape, label_shape,
+                                                class_num, batch_size, self.sess, x, proby)
+        else:
+            outputp = volume_probability_prediction_3d_roi(pad_img, data_shape, label_shape,
+                                                class_num, batch_size, self.sess, x, proby)
+        outputp = outputp[np.ix_(range(D), range(H), range(W), range(class_num))]
         if(shape_mode == 1):
-            outputy = resize_ND_volume_to_given_shape(outputy, img.shape[:-1], order = 0)
-        return outputy
+            outputp = resize_ND_volume_to_given_shape(outputp, list(img.shape[:-1]) + [class_num], order = 1)
+        return outputp
 
 def model_test(config_file):
     config = parse_config(config_file)
@@ -246,14 +270,38 @@ def model_test(config_file):
     
     label_source = config_data.get('label_convert_source', None)
     label_target = config_data.get('label_convert_target', None)
+    test_augment = config_data.get('test_augment', False)
+    test_augment_trans = config_data.get('test_augment_trans', False)
     if(not(label_source is None) and not(label_source is None)):
         assert(len(label_source) == len(label_target))
     img_num = data_loader.get_image_number()
     print('image number', img_num)
     for i in range(img_num):
         [name, img, weight, lab] = data_loader.get_image(i)
-        print(i, name, img.shape)
-        out = test_agent.test_one_volume(img)
+        if(config_data.get('crop_with_bounding_box', False)):
+            assert(config_data.get('with_ground_truth'))
+            roi_min, roi_max = get_ND_bounding_box(lab, margin = [0,0,0,0])
+            roi_max[3] = img.shape[3] - 1
+            img_roi = crop_ND_volume_with_bounding_box(img, roi_min, roi_max)
+            out_roi = test_agent.test_one_volume(img_roi, test_augment)
+            if(test_augment_trans):
+                img_roi_trans = np.transpose(img_roi, axes = [0, 2, 1, 3])
+                out_roi1 = test_agent.test_one_volume(img_roi_trans, test_augment)
+                out_roi1 = np.transpose(out_roi1, axes = [0, 2, 1, 3])
+                out_roi = (out_roi + out_roi1)/2
+            out_roi = np.asarray(np.argmax(out_roi, axis = 3), np.int16)
+            out = np.zeros(img.shape[:-1], np.uint8)
+            out = set_ND_volume_roi_with_bounding_box_range(out, roi_min[:-1],
+                    roi_max[:-1], out_roi)
+        else:
+            out = test_agent.test_one_volume(img, test_augment)
+            if(test_augment_trans):
+                img_trans = np.transpose(img, axes = [0, 2, 1, 3])
+                out1 = test_agent.test_one_volume(img_trans, test_augment)
+                out1 = np.transpose(out1, axes = [0, 2, 1, 3])
+                out = (out + out1)/2
+            out = np.asarray(np.argmax(out, axis = 3), np.int16)
+
         if(not(label_source is None) and not(label_source is None)):
             out = convert_label(out, label_source, label_target)
         save_name = '{0:}_{1:}.nii.gz'.format(name, config_data['output_postfix'])

@@ -64,21 +64,21 @@ def soft_size_loss1(prediction, soft_ground_truth, num_class, weight_map = None)
     size_loss = tf.div(size_loss, num_class)
     return 1-size_loss
 
-def soft_size_loss2(prediction, soft_ground_truth, num_class, weight_map = None):
+def soft_size_loss(prediction, soft_ground_truth, num_class, weight_map = None):
     pred = tf.reshape(prediction, [-1, num_class])
     pred = tf.nn.softmax(pred)
     grnd = tf.reshape(soft_ground_truth, [-1, num_class])
 
-    n_pixel   = tf.cast(tf.reduce_prod(tf.shape(pred))/num_class, tf.float32)
-    pred_size = tf.div(tf.reduce_sum(pred, 0), n_pixel)
-    grnd_size = tf.div(tf.reduce_sum(grnd, 0), n_pixel)
+    pred_size = tf.reduce_mean(pred, 0)
+    grnd_size = tf.reduce_mean(grnd, 0)
     size_loss = tf.square(pred_size - grnd_size)
-    size_loss = size_loss*tf.constant([0.0] + [1.0]*(num_class-1))
-    size_loss = tf.reduce_sum(size_loss)
-    size_loss = tf.div(size_loss, (num_class - 1.0))
+    size_loss = tf.multiply(size_loss, tf.constant([0] + [1]*(num_class-1), tf.float32))
+    size_loss = tf.reduce_sum(size_loss)/(num_class - 1)
+#    size_loss = size_loss/(tf.square(pred_size) + tf.square(grnd_size))
+#    size_loss = tf.reduce_mean(size_loss)
     return size_loss
 
-def soft_size_loss(prediction, soft_ground_truth, num_class, weight_map = None):
+def soft_size_loss2(prediction, soft_ground_truth, num_class, weight_map = None):
     pred   = tf.reshape(prediction, [-1, num_class])
     pred   = tf.nn.softmax(pred)
     ground = tf.reshape(soft_ground_truth, [-1, num_class])
@@ -118,26 +118,31 @@ class TrainAgent(object):
         self.m = tf.placeholder(tf.float32, shape = []) # momentum for batch normalization
         self.get_output_and_loss()
 
-    def get_variable_list(self, ignore_var_names):
+    def get_variable_list(self, var_names, include = True):
         all_vars = tf.global_variables()
-        if(ignore_var_names is None):
-            output_vars = all_vars
-        else:
-            output_vars = []
-            for var in all_vars:
+        output_vars = []
+        for var in all_vars:
+            if(include == False):
                 output_flag = True
-                for ignore_name in ignore_var_names:
-                    if(ignore_name in var.name):
-                        output_flag = False
+                if(var_names is not None):
+                    for ignore_name in var_names:
+                        if(ignore_name in var.name):
+                            output_flag = False
+                            break
+            else:
+                output_flag = False
+                for include_name in var_names:
+                    if(include_name in var.name):
+                        output_flag = True
                         break
-                if(output_flag):
-                    output_vars.append(var)
+            if(output_flag):
+                output_vars.append(var)
         return output_vars
         
     def create_optimization_step_and_data_generator(self):
         learn_rate  = self.config_train.get('learning_rate', 1e-3)
         vars_fixed  = self.config_train.get('vars_not_update', None)
-        vars_update = self.get_variable_list(vars_fixed)
+        vars_update = self.get_variable_list(vars_fixed, include = False)
         update_ops  = tf.get_collection(tf.GraphKeys.UPDATE_OPS) # for batch normalization
         with tf.control_dependencies(update_ops):
             self.opt_step = tf.train.AdamOptimizer(learn_rate).minimize(self.loss, var_list = vars_update)
@@ -172,18 +177,22 @@ class TrainAgent(object):
         # start the session
         self.sess = tf.InteractiveSession()
         self.sess.run(tf.global_variables_initializer())
-        saver = tf.train.Saver()
+        save_vars = self.get_variable_list([self.config_net['net_name']], include = True)
+        saver = tf.train.Saver(save_vars)
         
         max_iter    = self.config_train['maximal_iter']
         loss_file   = self.config_train['model_save_prefix'] + "_loss.txt"
+        dice_file   = self.config_train['model_save_prefix'] + "_dice.txt"
         start_iter  = self.config_train.get('start_iter', 0)
-        loss_list   = []
+        loss_list, dice_list   = [], []
         if( start_iter > 0):
             vars_not_load = self.config_train.get('vars_not_load', None)
-            restore_vars  = self.get_variable_list(vars_not_load)
+            restore_vars  = self.get_variable_list(vars_not_load, include = False)
             restore_saver = tf.train.Saver(restore_vars)
             restore_saver.restore(self.sess, self.config_train['pretrained_model'])
         
+        # make sure the graph is fixed during training
+        tf.get_default_graph().finalize()
         self.sess.run(self.train_init_op)
         for valid_init_op in self.valid_init_op:
             self.sess.run(valid_init_op)
@@ -199,27 +208,33 @@ class TrainAgent(object):
                 self.sess.run(self.training_init_op)
             
             if((iter + 1) % self.config_train['test_interval'] == 0):
-                batch_loss_list = []
+                batch_loss_list, batch_dice_list = [], []
                 for test_step in range(self.config_train['test_steps']):
-                    step_loss_list = []
+                    step_loss_list, step_dice_list = [], []
                     feed_dict = self.get_input_output_feed_dict('train')
                     feed_dict[self.m] = temp_momentum
                     loss_v = self.loss.eval(feed_dict)
+                    dice_v = self.dice.eval(feed_dict)
                     step_loss_list.append(loss_v)
-            
+                    step_dice_list.append(dice_v)
                     for valid_idx in range(len(self.config_data) - 1):
                         feed_dict = self.get_input_output_feed_dict('valid', valid_idx)
                         feed_dict[self.m] = temp_momentum
                         loss_v = self.loss.eval(feed_dict)
+                        dice_v = self.dice.eval(feed_dict)
                         step_loss_list.append(loss_v)
+                        step_dice_list.append(dice_v)
                     batch_loss_list.append(step_loss_list)
+                    batch_dice_list.append(step_dice_list)
                 batch_loss = np.asarray(batch_loss_list, np.float32).mean(axis = 0)
-            
-                print("{0:} Iter {1:}, loss {2:}".format(datetime.now(), iter+1, batch_loss))
+                batch_dice = np.asarray(batch_dice_list, np.float32).mean(axis = 0)
+                print("{0:} Iter {1:}, loss {2:}, dice {3:}".format(datetime.now(), \
+                    iter+1, batch_loss, batch_dice))
                 # save loss and snapshot
                 loss_list.append(batch_loss)
+                dice_list.append(batch_dice)
                 np.savetxt(loss_file, np.asarray(loss_list))
-                
+                np.savetxt(dice_file, np.asarray(dice_list))
             if((iter+1)%self.config_train['snapshot_iter']  == 0):
                 saver.save(self.sess, self.config_train['model_save_prefix']+"_{0:}.ckpt".format(iter+1))
 
@@ -256,30 +271,37 @@ class SegmentationTrainAgent(TrainAgent):
             print('use soft dice loss')
             loss = soft_dice_loss(self.predicty, y_soft, self.class_num)
             
-#            y_pool1 = tf.nn.pool(y_soft, [1, 3, 3], 'AVG', 'VALID', strides = [1, 3, 3])
-#            predy_pool1 = tf.nn.pool(self.predicty, [1, 3, 3], 'AVG', 'VALID', strides = [1, 3, 3])
-#            loss1 = soft_dice_loss(predy_pool1, y_pool1, self.class_num)
-#
-#            y_pool2 = tf.nn.pool(y_soft, [1, 6, 6], 'AVG', 'VALID', strides = [1, 6, 6])
-#            predy_pool2 = tf.nn.pool(self.predicty, [1, 6, 6], 'AVG', 'VALID', strides = [1, 6, 6])
-#            loss2 = soft_dice_loss(predy_pool2, y_pool2, self.class_num)
-#
-#            y_pool3 = tf.nn.pool(y_soft, [1, 12, 12], 'AVG', 'VALID', strides = [1, 12, 12])
-#            predy_pool3 = tf.nn.pool(self.predicty, [1, 12, 12], 'AVG', 'VALID', strides = [1, 12, 12])
-#            loss3 = soft_dice_loss(predy_pool3, y_pool3, self.class_num)
-#            loss = (loss + loss1 + loss2 + loss3)/4.0
+            y_pool1 = tf.nn.pool(y_soft, [1, 3, 3], 'AVG', 'VALID', strides = [1, 3, 3])
+            predy_pool1 = tf.nn.pool(self.predicty, [1, 3, 3], 'AVG', 'VALID', strides = [1, 3, 3])
+            loss1 = soft_dice_loss(predy_pool1, y_pool1, self.class_num)
+
+            y_pool2 = tf.nn.pool(y_soft, [1, 6, 6], 'AVG', 'VALID', strides = [1, 6, 6])
+            predy_pool2 = tf.nn.pool(self.predicty, [1, 6, 6], 'AVG', 'VALID', strides = [1, 6, 6])
+            loss2 = soft_dice_loss(predy_pool2, y_pool2, self.class_num)
+
+            y_pool3 = tf.nn.pool(y_soft, [1, 12, 12], 'AVG', 'VALID', strides = [1, 12, 12])
+            predy_pool3 = tf.nn.pool(self.predicty, [1, 12, 12], 'AVG', 'VALID', strides = [1, 12, 12])
+            loss3 = soft_dice_loss(predy_pool3, y_pool3, self.class_num)
+            loss = (loss + loss1 + loss2 + loss3)/4.0
         if(size_constraint):
             print('use size constraint loss')
-            y_soft  = get_soft_label(self.y, self.class_num)
-            loss = loss + soft_size_loss(self.predicty, y_soft, self.class_num, weight_map = self.w)
+            y_soft = get_soft_label(self.y, self.class_num)
+            size_loss = soft_size_loss(self.predicty, y_soft, self.class_num, weight_map = None)
+            loss = loss*0.8 + 0.2*size_loss
         self.loss = loss
+        
+        pred   = tf.cast(tf.argmax(self.predicty, axis = -1), tf.int32)
+        y_reshape = tf.reshape(self.y, tf.shape(pred))
+        intersect = tf.cast(tf.reduce_sum(pred * y_reshape), tf.float32)
+        volume_sum = tf.cast(tf.reduce_sum(pred) + tf.reduce_sum(y_reshape), tf.float32)
+        self.dice = 2.0*intersect/volume_sum
             
     def get_input_output_feed_dict(self, stage, net_idx = 0):
         while(True):
             if(stage == 'train'):
                 try:
                     [x_batch, w_batch, y_batch] = self.sess.run(self.next_train_batch)
-                    if (tf.shape(x_batch).eval()[0] == self.config_sampler.get('batch_size', 5)):
+                    if (x_batch.shape[0] == self.config_sampler.get('batch_size', 5)):
                         break
                     else:
                         self.sess.run(self.train_init_op)
@@ -288,7 +310,7 @@ class SegmentationTrainAgent(TrainAgent):
             else:
                 try:
                     [x_batch, w_batch, y_batch] = self.sess.run(self.next_valid_batch[net_idx])
-                    if (tf.shape(x_batch).eval()[0] == self.config_sampler.get('batch_size', 5)):
+                    if (x_batch.shape[0] == self.config_sampler.get('batch_size', 5)):
                         break
                     else:
                         self.sess.run(self.valid_init_op[net_idx])
