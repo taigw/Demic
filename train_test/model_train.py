@@ -91,6 +91,31 @@ def soft_size_loss2(prediction, soft_ground_truth, num_class, weight_map = None)
     size_loss = tf.div(size_loss, tf.cast(n, tf.float32))
     return size_loss
 
+def get_loss_weights(iter, max_iter):
+    N1 = int(max_iter/4)
+    N2 = int(max_iter/2)
+    N3 = int(max_iter*3/4)
+    if(iter < N1):
+        lambda1 = 0.0
+        lambda2 = 0.0
+        lambda3 = (iter + 0.0)/N1
+        lambda4 = 1.0 - lambda3
+    elif(iter < N2):
+        lambda1 = 0.0
+        lambda2 = (iter - N1 + 0.0)/N1
+        lambda3 = 1.0 - lambda2
+        lambda4 = 0.0
+    elif(iter < N3):
+        lambda1 = (iter - N2 + 0.0)/N1
+        lambda2 = 1.0 - lambda1
+        lambda3 = 0.0
+        lambda4 = 0.0
+    else:
+        lambda1 = 1.0
+        lambda2 = 0.0
+        lambda3 = 0.0
+        lambda4 = 0.0
+    return [lambda1, lambda2, lambda3, lambda4]
 class TrainAgent(object):
     def __init__(self, config):
         self.config_data    = config['dataset']
@@ -183,6 +208,8 @@ class TrainAgent(object):
         max_iter    = self.config_train['maximal_iter']
         loss_file   = self.config_train['model_save_prefix'] + "_loss.txt"
         dice_file   = self.config_train['model_save_prefix'] + "_dice.txt"
+        multi_scale_loss = self.config_train.get('multi_scale_loss', False)
+        gradual_train    = self.config_train.get('gradual_train', False)
         start_iter  = self.config_train.get('start_iter', 0)
         loss_list, dice_list   = [], []
         if( start_iter > 0):
@@ -203,6 +230,12 @@ class TrainAgent(object):
             try:
                 feed_dict = self.get_input_output_feed_dict('train')
                 feed_dict[self.m] = temp_momentum
+                if(multi_scale_loss and gradual_train):
+                    [lambda1, lambda2, lambda3, lambda4] = get_loss_weights(iter, max_iter)
+                    feed_dict[self.lambda1] = lambda1
+                    feed_dict[self.lambda2] = lambda2
+                    feed_dict[self.lambda3] = lambda3
+                    feed_dict[self.lambda4] = lambda4
                 self.opt_step.run(session = self.sess, feed_dict=feed_dict)
             except tf.errors.OutOfRangeError:
                 self.sess.run(self.training_init_op)
@@ -213,6 +246,12 @@ class TrainAgent(object):
                     step_loss_list, step_dice_list = [], []
                     feed_dict = self.get_input_output_feed_dict('train')
                     feed_dict[self.m] = temp_momentum
+                    if(multi_scale_loss and gradual_train):
+                        [lambda1, lambda2, lambda3, lambda4] = get_loss_weights(iter, max_iter)
+                        feed_dict[self.lambda1] = lambda1
+                        feed_dict[self.lambda2] = lambda2
+                        feed_dict[self.lambda3] = lambda3
+                        feed_dict[self.lambda4] = lambda4
                     loss_v = self.loss.eval(feed_dict)
                     dice_v = self.dice.eval(feed_dict)
                     step_loss_list.append(loss_v)
@@ -220,6 +259,12 @@ class TrainAgent(object):
                     for valid_idx in range(len(self.config_data) - 1):
                         feed_dict = self.get_input_output_feed_dict('valid', valid_idx)
                         feed_dict[self.m] = temp_momentum
+                        if(multi_scale_loss and gradual_train):
+                            [lambda1, lambda2, lambda3, lambda4] = get_loss_weights(iter, max_iter)
+                            feed_dict[self.lambda1] = lambda1
+                            feed_dict[self.lambda2] = lambda2
+                            feed_dict[self.lambda3] = lambda3
+                            feed_dict[self.lambda4] = lambda4
                         loss_v = self.loss.eval(feed_dict)
                         dice_v = self.dice.eval(feed_dict)
                         step_loss_list.append(loss_v)
@@ -241,11 +286,12 @@ class TrainAgent(object):
 class SegmentationTrainAgent(TrainAgent):
     def __init__(self, config):
         super(SegmentationTrainAgent, self).__init__(config)
-        assert(self.config_sampler['patch_mode'] == 0 or self.config_sampler['patch_mode'] == 1)
+        assert(self.config_sampler['patch_mode'] <=2)
     
     def get_output_and_loss(self):
         self.class_num = self.config_net['class_num']
         multi_scale_loss = self.config_train.get('multi_scale_loss', False)
+        gradual_train    = self.config_train.get('gradual_train', False)
         size_constraint  = self.config_train.get('size_constraint', False)
         loss_func = SegmentationLoss(n_class=self.class_num)
         
@@ -282,7 +328,15 @@ class SegmentationTrainAgent(TrainAgent):
             y_pool3 = tf.nn.pool(y_soft, [1, 12, 12], 'AVG', 'VALID', strides = [1, 12, 12])
             predy_pool3 = tf.nn.pool(self.predicty, [1, 12, 12], 'AVG', 'VALID', strides = [1, 12, 12])
             loss3 = soft_dice_loss(predy_pool3, y_pool3, self.class_num)
-            loss = (loss + loss1 + loss2 + loss3)/4.0
+            if(gradual_train):
+                print('use gradual train')
+                self.lambda1 = tf.placeholder(tf.float32, shape = [])
+                self.lambda2 = tf.placeholder(tf.float32, shape = [])
+                self.lambda3 = tf.placeholder(tf.float32, shape = [])
+                self.lambda4 = tf.placeholder(tf.float32, shape = [])
+                loss = self.lambda1 * loss + self.lambda2*loss1 + self.lambda3*loss2 + self.lambda4 * loss3
+            else:
+                loss = (loss + loss1 + loss2 + loss3)/4.0
         if(size_constraint):
             print('use size constraint loss')
             y_soft = get_soft_label(self.y, self.class_num)

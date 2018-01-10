@@ -5,6 +5,30 @@ import sys
 import numpy as np
 from scipy import ndimage
 
+
+## for 2D images
+def resize_2d_image_to_fixed_width(img, width, order = 1):
+    [H, W] = img.shape
+    scale  = float(width)/W
+    resized_img = ndimage.interpolation.zoom(img, scale, order = order)
+    return resized_img
+
+def resize_2d_image_to_fixed_height(img, height, order = 1):
+    [H, W] = img.shape
+    scale  = float(height)/H
+    resized_img = ndimage.interpolation.zoom(img, scale, order = order)
+    return resized_img
+
+def scale_itensity_for_visualize(img):
+    minv = img.min()
+    maxv = img.max()
+    output = (img - minv)*255/(maxv-minv)
+    output = np.uint8(output)
+    return output
+
+## for 3D images
+
+## for ND images
 def itensity_normalize_one_volume(volume, mask = None, replace = False):
     """
         normalize a volume image with mean dand std of the mask region

@@ -278,7 +278,17 @@ def model_test(config_file):
     print('image number', img_num)
     for i in range(img_num):
         [name, img, weight, lab] = data_loader.get_image(i)
-        if(config_data.get('crop_with_bounding_box', False)):
+        if(config_data.get('resize_input', False)):
+            desire_size = [img.shape[0]] + config['network']['data_shape'][1:3]
+            img_resize = resize_ND_volume_to_given_shape(img, desire_size, order = 3)
+            out_resize = test_agent.test_one_volume(img_resize, test_augment)
+            if(test_augment_trans):
+                img_trans = np.transpose(img_resize, axes = [0, 2, 1, 3])
+                out1 = test_agent.test_one_volume(img_trans, test_augment)
+                out1 = np.transpose(out1, axes = [0, 2, 1, 3])
+                out_resize = (out_resize + out1)/2
+            out = resize_ND_volume_to_given_shape(img_resize, img.shape, order = 0)
+        elif(config_data.get('crop_with_bounding_box', False)):
             assert(config_data.get('with_ground_truth'))
             roi_min, roi_max = get_ND_bounding_box(lab, margin = [0,0,0,0])
             roi_max[3] = img.shape[3] - 1
@@ -300,7 +310,7 @@ def model_test(config_file):
                 out1 = test_agent.test_one_volume(img_trans, test_augment)
                 out1 = np.transpose(out1, axes = [0, 2, 1, 3])
                 out = (out + out1)/2
-            out = np.asarray(np.argmax(out, axis = 3), np.int16)
+        out = np.asarray(np.argmax(out, axis = 3), np.int16)
 
         if(not(label_source is None) and not(label_source is None)):
             out = convert_label(out, label_source, label_target)

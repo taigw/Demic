@@ -70,31 +70,34 @@ class ImageDataGenerator(object):
         self.label_margin = label_margin
 
     def _parse_function(self, example_proto):
+        use_predefined_weight = self.config.get('use_predefined_weight', False)
         keys_to_features = {
             'image_raw':tf.FixedLenFeature((), tf.string),
-            'weight_raw':tf.FixedLenFeature((), tf.string),
             'label_raw':tf.FixedLenFeature((), tf.string),
             'image_shape_raw':tf.FixedLenFeature((), tf.string),
-            'weight_shape_raw':tf.FixedLenFeature((), tf.string),
             'label_shape_raw':tf.FixedLenFeature((), tf.string)}
+        if(use_predefined_weight):
+            keys_to_features['weight_raw'] = tf.FixedLenFeature((), tf.string)
+            keys_to_features['weight_shape_raw'] = tf.FixedLenFeature((), tf.string)
         # parse the data
         parsed_features = tf.parse_single_example(example_proto, keys_to_features)
         image_shape  = tf.decode_raw(parsed_features['image_shape_raw'],  tf.int32)
-        weight_shape = tf.decode_raw(parsed_features['weight_shape_raw'], tf.int32)
         label_shape  = tf.decode_raw(parsed_features['label_shape_raw'],  tf.int32)
-
+        
         image_shape  = tf.reshape(image_shape,  [4])
-        weight_shape = tf.reshape(weight_shape, [4])
         label_shape  = tf.reshape(label_shape,  [4])
-
         image_raw   = tf.decode_raw(parsed_features['image_raw'],  tf.float32)
-        weight_raw  = tf.decode_raw(parsed_features['weight_raw'], tf.float32)
         label_raw   = tf.decode_raw(parsed_features['label_raw'],  tf.int32)
-
         image  = tf.reshape(image_raw, image_shape)
-        weight = tf.reshape(weight_raw, weight_shape)
         label  = tf.reshape(label_raw, label_shape)
-       
+
+        if(use_predefined_weight):
+            weight_shape = tf.decode_raw(parsed_features['weight_shape_raw'], tf.int32)
+            weight_shape = tf.reshape(weight_shape, [4])
+            weight_raw  = tf.decode_raw(parsed_features['weight_raw'], tf.float32)
+            weight = tf.reshape(weight_raw, weight_shape)
+        else:
+            weight = tf.ones_like(label, tf.float32)
 
         ## preprocess
         # augmentation by random rotation
@@ -127,6 +130,7 @@ class ImageDataGenerator(object):
         
         # extract image patch
         patch_mode = self.config.get('patch_mode', 0)
+        print('patch_mode', patch_mode)
         if(patch_mode == 0):
             # randomly sample patch with fixed size
             [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
@@ -148,15 +152,15 @@ class ImageDataGenerator(object):
                      img_slice, weight_slice, label_slice)
             return img_slice, weight_slice, label_slice
         elif(patch_mode == 2):
-            # For bounding box regression, resize 2d images to given size, and get spatial transformer parameters
+            # resize 2d images to given size, and get spatial transformer parameters
             new_2d_size = tf.constant(self.config['data_shape'][1:3])
             img_slice   = tf.image.resize_images(image, new_2d_size, method = 0) # bilinear
             weight_slice= tf.image.resize_images(weight,new_2d_size, method = 0) # bilinear
             label_slice = tf.image.resize_images(label, new_2d_size, method = 1) # nearest
             [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
                     img_slice, weight_slice, label_slice)
-            stp = self.__get_spatial_transform_parameter(label_slice)
-            return img_slice, stp
+#            stp = self.__get_spatial_transform_parameter(label_slice)
+            return img_slice, weight_slice, label_slice
         else:
             raise ValueError('unsupported patch mode {0:}'.format(patch_mode))
     
@@ -241,6 +245,7 @@ class ImageDataGenerator(object):
         img_slice    = tf.slice(img, img_begin, data_shape_out)
         weight_slice = tf.slice(weight, img_begin, weight_shape_out)
         label_slice  = tf.slice(label, lab_begin, label_shape_out)
+
         return [img_slice, weight_slice, label_slice]
     
     def __get_spatial_transform_parameter(self, label):

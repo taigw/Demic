@@ -19,6 +19,7 @@ class UNet2D(TrainableLayer):
     
     def __init__(self,
                  num_classes,
+                 parameters   =None,
                  w_initializer=None,
                  w_regularizer=None,
                  b_initializer=None,
@@ -27,9 +28,10 @@ class UNet2D(TrainableLayer):
                  name='UNet2D'):
         super(UNet2D, self).__init__(name=name)
         
-#        self.n_features = [64, 128, 256, 512, 1024]
-        self.n_features = [64, 128, 256, 256, 256]
-#        self.n_features = [32, 32, 32, 32, 32]
+        if(parameters is None):
+            self.n_features = [64, 128, 256, 256, 256]
+        else:
+            self.n_features = parameters.get('num_features', [64, 128, 256, 256, 256])
         self.acti_func = acti_func
         self.num_classes = num_classes
         
