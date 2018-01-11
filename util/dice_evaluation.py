@@ -56,8 +56,8 @@ def dice_evaluation(config_file):
         for lab in labels:
             s_volume_sub = s_volume_sub + s_volume == lab
             g_volume_sub = g_volume_sub + g_volume == lab
-        if(s_volume_sub.sum() > 0):
-            s_volume_sub = get_largest_component(s_volume_sub)
+#        if(s_volume_sub.sum() > 0):
+#            s_volume_sub = get_largest_component(s_volume_sub)
         temp_dice = binary_dice3d(s_volume_sub, g_volume_sub)
         dice_all_data.append(temp_dice)
         print(patient_names[i], temp_dice)

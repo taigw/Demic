@@ -287,7 +287,9 @@ def model_test(config_file):
                 out1 = test_agent.test_one_volume(img_trans, test_augment)
                 out1 = np.transpose(out1, axes = [0, 2, 1, 3])
                 out_resize = (out_resize + out1)/2
-            out = resize_ND_volume_to_given_shape(img_resize, img.shape, order = 0)
+            out = resize_ND_volume_to_given_shape(img_resize, \
+                    list(img.shape[:-1]) + [class_num], order = 1)
+            out = np.asarray(np.argmax(out, axis = 3), np.int16)
         elif(config_data.get('crop_with_bounding_box', False)):
             assert(config_data.get('with_ground_truth'))
             roi_min, roi_max = get_ND_bounding_box(lab, margin = [0,0,0,0])
@@ -310,7 +312,7 @@ def model_test(config_file):
                 out1 = test_agent.test_one_volume(img_trans, test_augment)
                 out1 = np.transpose(out1, axes = [0, 2, 1, 3])
                 out = (out + out1)/2
-        out = np.asarray(np.argmax(out, axis = 3), np.int16)
+            out = np.asarray(np.argmax(out, axis = 3), np.int16)
 
         if(not(label_source is None) and not(label_source is None)):
             out = convert_label(out, label_source, label_target)

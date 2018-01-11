@@ -11,6 +11,25 @@ from tensorflow.python.framework import dtypes
 from tensorflow.python.framework.ops import convert_to_tensor
 
 
+def get_one_of_two_tensors(a,b, r):
+    """
+    randomly return one of two tensors of a and b
+    inputs:
+        a: an input tensor
+        b: an input tensor with the same shape of a
+        r: an random number between 0 and 1
+    output:
+        output: the returned tensor
+    """
+    r = tf.less(r, tf.constant(0.5))
+    r = tf.cast(r, tf.int32)
+    a_b = tf.stack([a,b])
+    slice_begin = tf.concat([r, tf.zeros_like(tf.shape(a))], -1)
+    slice_size  = tf.concat([tf.constant([1]), tf.shape(a)], -1)
+    output = tf.slice(a_b, slice_begin, slice_size)
+    output = tf.reshape(output, tf.shape(a))
+    return output
+
 def random_flip_tensors_in_one_dim(x, d):
     """
     Random flip a tensor in one dimension
@@ -99,70 +118,20 @@ class ImageDataGenerator(object):
         else:
             weight = tf.ones_like(label, tf.float32)
 
-        ## preprocess
-        # augmentation by random rotation
-        random_rotate = self.config.get('random_rotate', None)
-        if(not(random_rotate is None)):
-            assert(len(random_rotate) == 2)
-            assert(random_rotate[0] < random_rotate[1])
-            angle  = tf.random_uniform([], random_rotate[0], random_rotate[1])
-            image  = tf.contrib.image.rotate(image, angle, "BILINEAR")
-            weight = tf.contrib.image.rotate(weight, angle,"BILINEAR")
-            label  = tf.contrib.image.rotate(label, angle,"NEAREST")
-        
-        # augmentation by random flip
-        if(self.config.get('flip_left_right', False)):
-            [image, weight, label] = random_flip_tensors_in_one_dim([image, weight, label], 2)
-        if(self.config.get('flip_up_down', False)):
-            [image, weight, label] = random_flip_tensors_in_one_dim([image, weight, label], 1)
-
-        # convert label
-        if(self.label_convert_source and self.label_convert_target):
-            assert(len(self.label_convert_source) == len(self.label_convert_target))
-            label_converted = tf.zeros_like(label)
-            for i in range(len(self.label_convert_source)):
-                l0 = self.label_convert_source[i]
-                l1 = self.label_convert_target[i]
-                label_temp = tf.equal(label, tf.multiply(l0, tf.ones_like(label)))
-                label_temp = tf.multiply(l1, tf.cast(label_temp,tf.int32))
-                label_converted = tf.add(label_converted, label_temp)
-            label = label_converted
-        
         # extract image patch
         patch_mode = self.config.get('patch_mode', 0)
-        print('patch_mode', patch_mode)
-        if(patch_mode == 0):
-            # randomly sample patch with fixed size
-            [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
-                    image, weight, label)
-            return img_slice, weight_slice, label_slice
-        elif(patch_mode == 1):
-            # Sampling with bounding box, crop with 3d bounding box and resize to given size within plane
-            margin = self.config.get('bounding_box_margin', [0,0,0])
-            [min_idx, max_idx] = self.__get_4d_bounding_box(label, margin+[0])
-            img_slice    = self.__crop_4d_tensor_with_bounding_box(image, min_idx, max_idx)
-            weight_slice = self.__crop_4d_tensor_with_bounding_box(weight, min_idx, max_idx)
-            label_slice  = self.__crop_4d_tensor_with_bounding_box(label, min_idx, max_idx)
-            
-            new_2d_size = tf.constant(self.config['data_shape'][1:3])
-            img_slice   = tf.image.resize_images(img_slice, new_2d_size, method = 0)   # bilinear
-            weight_slice= tf.image.resize_images(weight_slice, new_2d_size, method = 0)# bilinear
-            label_slice = tf.image.resize_images(label_slice, new_2d_size, method = 1) # nearest
-            [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
-                     img_slice, weight_slice, label_slice)
-            return img_slice, weight_slice, label_slice
-        elif(patch_mode == 2):
-            # resize 2d images to given size, and get spatial transformer parameters
-            new_2d_size = tf.constant(self.config['data_shape'][1:3])
-            img_slice   = tf.image.resize_images(image, new_2d_size, method = 0) # bilinear
-            weight_slice= tf.image.resize_images(weight,new_2d_size, method = 0) # bilinear
-            label_slice = tf.image.resize_images(label, new_2d_size, method = 1) # nearest
-            [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
-                    img_slice, weight_slice, label_slice)
-#            stp = self.__get_spatial_transform_parameter(label_slice)
-            return img_slice, weight_slice, label_slice
+        if(patch_mode <= 2):
+            [img_patch, wht_patch, lab_patch] = self.__get_training_patch(image, weight, label, patch_mode)
+        elif(patch_mode == 3):
+            [img_patch1, wht_patch1, lab_patch1] = self.__get_training_patch(image, weight, label, 1)
+            [img_patch2, wht_patch2, lab_patch2] = self.__get_training_patch(image, weight, label, 2)
+            r = tf.random_uniform([1], 0, 1)
+            img_patch = get_one_of_two_tensors(img_patch1, img_patch2, r)
+            wht_patch = get_one_of_two_tensors(wht_patch1, wht_patch2, r)
+            lab_patch = get_one_of_two_tensors(lab_patch1, lab_patch2, r)
         else:
             raise ValueError('unsupported patch mode {0:}'.format(patch_mode))
+        return img_patch, wht_patch, lab_patch
     
     def __pad_tensor_to_desired_shape(self, inpt_tensor, outpt_shape):
         """ Pad a tensor to desired shape
@@ -248,6 +217,69 @@ class ImageDataGenerator(object):
 
         return [img_slice, weight_slice, label_slice]
     
+    def __get_training_patch(self, image, weight, label, patch_mode):
+        ## preprocess
+        # augmentation by random rotation
+        if(patch_mode == 1):
+            random_rotate = self.config.get('random_rotate', None)
+            if(not(random_rotate is None)):
+                assert(len(random_rotate) == 2)
+                assert(random_rotate[0] < random_rotate[1])
+                angle  = tf.random_uniform([], random_rotate[0], random_rotate[1])
+                image  = tf.contrib.image.rotate(image, angle, "BILINEAR")
+                weight = tf.contrib.image.rotate(weight, angle,"BILINEAR")
+                label  = tf.contrib.image.rotate(label, angle,"NEAREST")
+        
+        # augmentation by random flip
+        if(self.config.get('flip_left_right', False)):
+            [image, weight, label] = random_flip_tensors_in_one_dim([image, weight, label], 2)
+        if(self.config.get('flip_up_down', False)):
+            [image, weight, label] = random_flip_tensors_in_one_dim([image, weight, label], 1)
+
+        # convert label
+        if(self.label_convert_source and self.label_convert_target):
+            assert(len(self.label_convert_source) == len(self.label_convert_target))
+            label_converted = tf.zeros_like(label)
+            for i in range(len(self.label_convert_source)):
+                l0 = self.label_convert_source[i]
+                l1 = self.label_convert_target[i]
+                label_temp = tf.equal(label, tf.multiply(l0, tf.ones_like(label)))
+                label_temp = tf.multiply(l1, tf.cast(label_temp,tf.int32))
+                label_converted = tf.add(label_converted, label_temp)
+            label = label_converted
+
+
+        if(patch_mode == 0):
+            # randomly sample patch with fixed size
+            [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
+                    image, weight, label)
+            return img_slice, weight_slice, label_slice
+        elif(patch_mode == 1):
+            # Sampling with bounding box, crop with 3d bounding box and resize to given size within plane
+            margin = self.config.get('bounding_box_margin', [0,0,0])
+            [min_idx, max_idx] = self.__get_4d_bounding_box(label, margin+[0])
+            img_slice    = self.__crop_4d_tensor_with_bounding_box(image, min_idx, max_idx)
+            weight_slice = self.__crop_4d_tensor_with_bounding_box(weight, min_idx, max_idx)
+            label_slice  = self.__crop_4d_tensor_with_bounding_box(label, min_idx, max_idx)
+            
+            new_2d_size = tf.constant(self.config['data_shape'][1:3])
+            img_slice   = tf.image.resize_images(img_slice, new_2d_size, method = 0)   # bilinear
+            weight_slice= tf.image.resize_images(weight_slice, new_2d_size, method = 0)# bilinear
+            label_slice = tf.image.resize_images(label_slice, new_2d_size, method = 1) # nearest
+            [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
+                     img_slice, weight_slice, label_slice)
+            return img_slice, weight_slice, label_slice
+        elif(patch_mode == 2):
+            # resize 2d images to given size, and get spatial transformer parameters
+            new_2d_size = tf.constant(self.config['data_shape'][1:3])
+            img_slice   = tf.image.resize_images(image, new_2d_size, method = 0) # bilinear
+            weight_slice= tf.image.resize_images(weight,new_2d_size, method = 0) # bilinear
+            label_slice = tf.image.resize_images(label, new_2d_size, method = 1) # nearest
+            [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
+                    img_slice, weight_slice, label_slice)
+#            stp = self.__get_spatial_transform_parameter(label_slice)
+            return img_slice, weight_slice, label_slice
+
     def __get_spatial_transform_parameter(self, label):
         """Compute the parameters for spatial transformer (affine)
             [sh,  0, dh]

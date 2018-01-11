@@ -214,7 +214,7 @@ class TrainAgent(object):
         loss_list, dice_list   = [], []
         if( start_iter > 0):
             vars_not_load = self.config_train.get('vars_not_load', None)
-            restore_vars  = self.get_variable_list(vars_not_load, include = False)
+            restore_vars  = save_vars # self.get_variable_list(vars_not_load, include = False)
             restore_saver = tf.train.Saver(restore_vars)
             restore_saver.restore(self.sess, self.config_train['pretrained_model'])
         
@@ -286,7 +286,7 @@ class TrainAgent(object):
 class SegmentationTrainAgent(TrainAgent):
     def __init__(self, config):
         super(SegmentationTrainAgent, self).__init__(config)
-        assert(self.config_sampler['patch_mode'] <=2)
+        assert(self.config_sampler['patch_mode'] <=3)
     
     def get_output_and_loss(self):
         self.class_num = self.config_net['class_num']
