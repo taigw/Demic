@@ -5,6 +5,7 @@ Author: Guotai Wang
 import os
 import sys
 import math
+import time
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -268,6 +269,8 @@ def model_test(config_file):
     data_loader.load_data()
     test_agent = TestAgent(config)
     
+    class_num = config['network']['class_num']
+    crop_z_axis = config['testing']['crop_z_axis']
     label_source = config_data.get('label_convert_source', None)
     label_target = config_data.get('label_convert_target', None)
     test_augment = config_data.get('test_augment', False)
@@ -275,11 +278,18 @@ def model_test(config_file):
     if(not(label_source is None) and not(label_source is None)):
         assert(len(label_source) == len(label_target))
     img_num = data_loader.get_image_number()
+    test_time = []
     print('image number', img_num)
     for i in range(img_num):
-        [name, img, weight, lab] = data_loader.get_image(i)
+        [name, img_raw, weight_raw, lab_raw] = data_loader.get_image(i)
+        if(crop_z_axis):
+            roi_min, roi_max = get_ND_bounding_box(lab_raw, margin = [15,20,20,0])
+            zmin = roi_min[0]; zmax = roi_max[0]
+            img = img_raw[zmin:zmax]
+            lab = lab_raw[zmin:zmax]
+        t0 = time.time()
         if(config_data.get('resize_input', False)):
-            desire_size = [img.shape[0]] + config['network']['data_shape'][1:3]
+            desire_size = [img.shape[0]] + config['network']['data_shape'][1:]
             img_resize = resize_ND_volume_to_given_shape(img, desire_size, order = 3)
             out_resize = test_agent.test_one_volume(img_resize, test_augment)
             if(test_augment_trans):
@@ -287,12 +297,12 @@ def model_test(config_file):
                 out1 = test_agent.test_one_volume(img_trans, test_augment)
                 out1 = np.transpose(out1, axes = [0, 2, 1, 3])
                 out_resize = (out_resize + out1)/2
-            out = resize_ND_volume_to_given_shape(img_resize, \
+            out = resize_ND_volume_to_given_shape(out_resize, \
                     list(img.shape[:-1]) + [class_num], order = 1)
             out = np.asarray(np.argmax(out, axis = 3), np.int16)
         elif(config_data.get('crop_with_bounding_box', False)):
             assert(config_data.get('with_ground_truth'))
-            roi_min, roi_max = get_ND_bounding_box(lab, margin = [0,0,0,0])
+            roi_min, roi_max = get_ND_bounding_box(lab, margin = [5,20,20,0])
             roi_max[3] = img.shape[3] - 1
             img_roi = crop_ND_volume_with_bounding_box(img, roi_min, roi_max)
             out_roi = test_agent.test_one_volume(img_roi, test_augment)
@@ -316,8 +326,17 @@ def model_test(config_file):
 
         if(not(label_source is None) and not(label_source is None)):
             out = convert_label(out, label_source, label_target)
+        if(crop_z_axis):
+            out_raw = np.zeros(img_raw.shape[:-1], np.uint8)
+            out_raw[zmin:zmax] = out
+            out = out_raw
+
+        test_time.append(time.time() - t0)
         save_name = '{0:}_{1:}.nii.gz'.format(name, config_data['output_postfix'])
         save_array_as_nifty_volume(out, config_data['save_root']+'/'+save_name)
+    test_time = np.asarray(test_time)
+    print('test time', test_time.mean(), test_time.std())
+    np.savetxt(config_data['save_root'] + '/test_time.txt', test_time)
 
 if __name__ == '__main__':
     if(len(sys.argv) != 2):

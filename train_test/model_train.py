@@ -92,30 +92,21 @@ def soft_size_loss2(prediction, soft_ground_truth, num_class, weight_map = None)
     return size_loss
 
 def get_loss_weights(iter, max_iter):
-    N1 = int(max_iter/4)
-    N2 = int(max_iter/2)
-    N3 = int(max_iter*3/4)
+    N1 = int(max_iter/3)
+    N2 = int(max_iter*2/3)
     if(iter < N1):
         lambda1 = 0.0
         lambda2 = 0.0
-        lambda3 = (iter + 0.0)/N1
-        lambda4 = 1.0 - lambda3
+        lambda3 = 1.0
     elif(iter < N2):
-        lambda1 = 0.0
-        lambda2 = (iter - N1 + 0.0)/N1
-        lambda3 = 1.0 - lambda2
-        lambda4 = 0.0
-    elif(iter < N3):
-        lambda1 = (iter - N2 + 0.0)/N1
-        lambda2 = 1.0 - lambda1
-        lambda3 = 0.0
-        lambda4 = 0.0
+        lambda1 = 0.33
+        lambda2 = 0.33
+        lambda3 = 0.33
     else:
         lambda1 = 1.0
         lambda2 = 0.0
         lambda3 = 0.0
-        lambda4 = 0.0
-    return [lambda1, lambda2, lambda3, lambda4]
+    return [lambda1, lambda2, lambda3]
 class TrainAgent(object):
     def __init__(self, config):
         self.config_data    = config['dataset']
@@ -231,11 +222,10 @@ class TrainAgent(object):
                 feed_dict = self.get_input_output_feed_dict('train')
                 feed_dict[self.m] = temp_momentum
                 if(multi_scale_loss and gradual_train):
-                    [lambda1, lambda2, lambda3, lambda4] = get_loss_weights(iter, max_iter)
+                    [lambda1, lambda2, lambda3] = get_loss_weights(iter, max_iter)
                     feed_dict[self.lambda1] = lambda1
                     feed_dict[self.lambda2] = lambda2
                     feed_dict[self.lambda3] = lambda3
-                    feed_dict[self.lambda4] = lambda4
                 self.opt_step.run(session = self.sess, feed_dict=feed_dict)
             except tf.errors.OutOfRangeError:
                 self.sess.run(self.training_init_op)
@@ -247,11 +237,10 @@ class TrainAgent(object):
                     feed_dict = self.get_input_output_feed_dict('train')
                     feed_dict[self.m] = temp_momentum
                     if(multi_scale_loss and gradual_train):
-                        [lambda1, lambda2, lambda3, lambda4] = get_loss_weights(iter, max_iter)
+                        [lambda1, lambda2, lambda3] = get_loss_weights(iter, max_iter)
                         feed_dict[self.lambda1] = lambda1
                         feed_dict[self.lambda2] = lambda2
                         feed_dict[self.lambda3] = lambda3
-                        feed_dict[self.lambda4] = lambda4
                     loss_v = self.loss.eval(feed_dict)
                     dice_v = self.dice.eval(feed_dict)
                     step_loss_list.append(loss_v)
@@ -260,11 +249,10 @@ class TrainAgent(object):
                         feed_dict = self.get_input_output_feed_dict('valid', valid_idx)
                         feed_dict[self.m] = temp_momentum
                         if(multi_scale_loss and gradual_train):
-                            [lambda1, lambda2, lambda3, lambda4] = get_loss_weights(iter, max_iter)
+                            [lambda1, lambda2, lambda3] = get_loss_weights(iter, max_iter)
                             feed_dict[self.lambda1] = lambda1
                             feed_dict[self.lambda2] = lambda2
                             feed_dict[self.lambda3] = lambda3
-                            feed_dict[self.lambda4] = lambda4
                         loss_v = self.loss.eval(feed_dict)
                         dice_v = self.dice.eval(feed_dict)
                         step_loss_list.append(loss_v)
@@ -317,26 +305,22 @@ class SegmentationTrainAgent(TrainAgent):
             print('use soft dice loss')
             loss = soft_dice_loss(self.predicty, y_soft, self.class_num)
             
-            y_pool1 = tf.nn.pool(y_soft, [1, 3, 3], 'AVG', 'VALID', strides = [1, 3, 3])
-            predy_pool1 = tf.nn.pool(self.predicty, [1, 3, 3], 'AVG', 'VALID', strides = [1, 3, 3])
+            y_pool1 = tf.nn.pool(y_soft, [1, 2, 2], 'AVG', 'VALID', strides = [1, 2, 2])
+            predy_pool1 = tf.nn.pool(self.predicty, [1, 2, 2], 'AVG', 'VALID', strides = [1, 2, 2])
             loss1 = soft_dice_loss(predy_pool1, y_pool1, self.class_num)
 
-            y_pool2 = tf.nn.pool(y_soft, [1, 6, 6], 'AVG', 'VALID', strides = [1, 6, 6])
-            predy_pool2 = tf.nn.pool(self.predicty, [1, 6, 6], 'AVG', 'VALID', strides = [1, 6, 6])
+            y_pool2 = tf.nn.pool(y_soft, [1, 4, 4], 'AVG', 'VALID', strides = [1, 4, 4])
+            predy_pool2 = tf.nn.pool(self.predicty, [1, 4, 4], 'AVG', 'VALID', strides = [1, 4, 4])
             loss2 = soft_dice_loss(predy_pool2, y_pool2, self.class_num)
 
-            y_pool3 = tf.nn.pool(y_soft, [1, 12, 12], 'AVG', 'VALID', strides = [1, 12, 12])
-            predy_pool3 = tf.nn.pool(self.predicty, [1, 12, 12], 'AVG', 'VALID', strides = [1, 12, 12])
-            loss3 = soft_dice_loss(predy_pool3, y_pool3, self.class_num)
             if(gradual_train):
                 print('use gradual train')
                 self.lambda1 = tf.placeholder(tf.float32, shape = [])
                 self.lambda2 = tf.placeholder(tf.float32, shape = [])
                 self.lambda3 = tf.placeholder(tf.float32, shape = [])
-                self.lambda4 = tf.placeholder(tf.float32, shape = [])
-                loss = self.lambda1 * loss + self.lambda2*loss1 + self.lambda3*loss2 + self.lambda4 * loss3
+                loss = self.lambda1 * loss + self.lambda2*loss1 + self.lambda3*loss2
             else:
-                loss = (loss + loss1 + loss2 + loss3)/4.0
+                loss = (loss + loss1 + loss2 )/3.0
         if(size_constraint):
             print('use size constraint loss')
             y_soft = get_soft_label(self.y, self.class_num)

@@ -27,6 +27,32 @@ def scale_itensity_for_visualize(img):
     return output
 
 ## for 3D images
+def get_largest_component(img): # 2D or 3D
+    if(img.sum()==0):
+        print('the largest component is null')
+        return img
+    if(len(img.shape) == 3):
+        s = ndimage.generate_binary_structure(3,1) # iterate structure
+    elif(len(img.shape) == 2):
+        s = ndimage.generate_binary_structure(2,1) # iterate structure
+    else:
+        raise ValueError("the dimension number shoud be 2 or 3")
+    labeled_array, numpatches = ndimage.label(img,s) # labeling
+    sizes = ndimage.sum(img,labeled_array,range(1,numpatches+1))
+    max_label = np.where(sizes == sizes.max())[0] + 1
+    return labeled_array == max_label
+
+def get_detection_binary_bounding_box(img, margin):
+    strt = ndimage.generate_binary_structure(3,2) # iterate structure
+    post = ndimage.morphology.binary_closing(img, strt)
+    post = get_largest_component(post)
+    bb_min, bb_max = get_ND_bounding_box(post, margin)
+    out = np.zeros_like(img)
+    out[np.ix_(range(bb_min[0], bb_max[0] + 1),
+                   range(bb_min[1], bb_max[1] + 1),
+                   range(bb_min[2], bb_max[2] + 1))] = 1
+    return out
+
 
 ## for ND images
 def itensity_normalize_one_volume(volume, mask = None, replace = False):
@@ -116,6 +142,9 @@ def crop_ND_volume_with_bounding_box(volume, min_idx, max_idx):
     return output
 
 def set_ND_volume_roi_with_bounding_box_range(volume, bb_min, bb_max, sub_volume):
+    """
+    set a subregion to an nd image.
+    """
     dim = len(bb_min)
     out = volume
     if(dim == 2):
