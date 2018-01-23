@@ -141,22 +141,17 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
 
 def get_augment_prediction(pad_img, data_shape, label_shape,
                            class_num, batch_size, sess, x, proby):
-    outputp = volume_probability_prediction_3d_roi(pad_img, data_shape, label_shape,
-                                               class_num, batch_size, sess, x, proby)
+    [D, H, W, C] = pad_img.shape
     flip1 = np.flip(pad_img, axis = 2)
-    outputp1 = volume_probability_prediction_3d_roi(flip1, data_shape, label_shape,
-                                               class_num, batch_size, sess, x, proby)
-    outputp1 = np.flip(outputp1, axis = 2)
-    
     flip2 = np.flip(pad_img, axis = 1)
-    outputp2 = volume_probability_prediction_3d_roi(flip2, data_shape, label_shape,
-                                               class_num, batch_size, sess, x, proby)
-    outputp2 = np.flip(outputp2, axis = 1)
-    
     flip3 = np.flip(flip1, axis = 1)
-    outputp3 = volume_probability_prediction_3d_roi(flip3, data_shape, label_shape,
+    all_input  = np.concatenate((pad_img, flip1, flip2, flip3))
+    all_output = volume_probability_prediction_3d_roi(all_input, data_shape, label_shape,
                                                class_num, batch_size, sess, x, proby)
-    outputp3 = np.flip(outputp3, axis = 1)
+    outputp  = all_output[0:D]
+    outputp1 = np.flip(all_output[D:2*D], axis = 2)
+    outputp2 = np.flip(all_output[2*D:3*D], axis = 1)
+    outputp3 = np.flip(all_output[3*D:4*D], axis = 1)
     outputp3 = np.flip(outputp3, axis = 2)
     return (outputp + outputp1 + outputp2 + outputp3)/4
 
@@ -188,9 +183,32 @@ class TestAgent:
                              b_regularizer = None,
                              name = self.config_net['net_name'])
 
+    def construct_network(self):
+        batch_size = self.config_test.get('batch_size', 1)
+        data_shape = self.config_net['data_shape']
+        label_shape= self.config_net['label_shape']
+        class_num  = self.config_net['class_num']
+        shape_mode = self.config_test.get('shape_mode', 1)
+        margin = [data_shape[i] - label_shape[i] for i in range(len(data_shape))]
+        
+#        full_data_shape  = [None] + data_shape
+        full_data_shape = [None, None, None, None, 1]
+        self.x = tf.placeholder(tf.float32, shape = full_data_shape)
+        print('network input', self.x)
+        predicty = self.net(self.x, is_training = True, bn_momentum = 0.0)
+        print('network output shape ', predicty)
+        self.proby = tf.nn.softmax(predicty)
+
+        self.sess = tf.InteractiveSession()
+        self.sess.run(tf.global_variables_initializer())
+        all_vars = tf.global_variables()
+        restore_vars= [vars for vars in all_vars if self.config_net['net_name'] in vars.name]
+        saver = tf.train.Saver(restore_vars)
+        saver.restore(self.sess, self.config_net['model_file'])
+
     def test_one_volume(self, img, test_augment = False):
         # calculate shape of tensors
-        batch_size = self.config_test.get('batch_size', 1)
+#        batch_size = self.config_test.get('batch_size', 1)
         data_shape = self.config_net['data_shape']
         label_shape= self.config_net['label_shape']
         class_num  = self.config_net['class_num']
@@ -204,6 +222,8 @@ class TestAgent:
         else:
             resized_img = img
         [D, H, W, C] = resized_img.shape
+        batch_size = 2*D if test_augment else D
+        batch_size = min(batch_size, self.config_test['batch_size'])
         # pad input image to desired size
         size_factor = self.config_test.get('size_factor',[1,1,1])
         Dr = int(math.ceil(float(D)/size_factor[0])*size_factor[0])
@@ -223,40 +243,14 @@ class TestAgent:
         full_label_shape = [batch_size] + label_shape
         full_weight_shape = [i for i in full_data_shape]
         full_weight_shape[-1] = 1
-
-        # construct graph
-        x = tf.placeholder(tf.float32, shape = full_data_shape)
-        print('network input', x)
-        predicty = self.net(x, is_training = True, bn_momentum = 0.0)
-        print('network output shape ', predicty)
-        proby = tf.nn.softmax(predicty)
-
-        self.sess = tf.InteractiveSession()
-        self.sess.run(tf.global_variables_initializer())
-        all_vars = tf.global_variables()
-        ignore_var_names = self.config_net.get('ignore_var_names', None)
-        if(ignore_var_names is None):
-            restore_vars = all_vars
-        else:
-            restore_vars = []
-            for var in all_vars:
-                restore_flag = True
-                for ignore_name in ignore_var_names:
-                    if(ignore_name in var.name):
-                        restore_flag = False
-                        break
-                if(restore_flag):
-                    restore_vars.append(var)
-        saver = tf.train.Saver(restore_vars)
-        saver.restore(self.sess, self.config_net['model_file'])
         
         # inference
         if(test_augment):
             outputp = get_augment_prediction(pad_img, data_shape, label_shape,
-                                                class_num, batch_size, self.sess, x, proby)
+                                                class_num, batch_size, self.sess, self.x, self.proby)
         else:
             outputp = volume_probability_prediction_3d_roi(pad_img, data_shape, label_shape,
-                                                class_num, batch_size, self.sess, x, proby)
+                                                class_num, batch_size, self.sess, self.x, self.proby)
         outputp = outputp[np.ix_(range(D), range(H), range(W), range(class_num))]
         if(shape_mode == 1):
             outputp = resize_ND_volume_to_given_shape(outputp, list(img.shape[:-1]) + [class_num], order = 1)
@@ -268,9 +262,11 @@ def model_test(config_file):
     data_loader = DataLoader(config_data)
     data_loader.load_data()
     test_agent = TestAgent(config)
+    test_agent.construct_network()
     
     class_num = config['network']['class_num']
     crop_z_axis = config['testing']['crop_z_axis']
+    detection_only = config['testing'].get('detection_only', False)
     label_source = config_data.get('label_convert_source', None)
     label_target = config_data.get('label_convert_target', None)
     test_augment = config_data.get('test_augment', False)
@@ -281,16 +277,17 @@ def model_test(config_file):
     test_time = []
     print('image number', img_num)
     for i in range(img_num):
-        [name, img_raw, weight_raw, lab_raw] = data_loader.get_image(i)
+        [name, img_raw, weight_raw, lab_raw, spacing] = data_loader.get_image(i)
         if(crop_z_axis):
             roi_min, roi_max = get_ND_bounding_box(lab_raw, margin = [15,20,20,0])
             zmin = roi_min[0]; zmax = roi_max[0]
             img = img_raw[zmin:zmax]
             lab = lab_raw[zmin:zmax]
-        t0 = time.time()
         if(config_data.get('resize_input', False)):
+            t0 = time.time()
             desire_size = [img.shape[0]] + config['network']['data_shape'][1:]
-            img_resize = resize_ND_volume_to_given_shape(img, desire_size, order = 3)
+            img_resize = resize_ND_volume_to_given_shape(img, desire_size, order = 1)
+            print('resized image', img_resize.shape)
             out_resize = test_agent.test_one_volume(img_resize, test_augment)
             if(test_augment_trans):
                 img_trans = np.transpose(img_resize, axes = [0, 2, 1, 3])
@@ -304,18 +301,23 @@ def model_test(config_file):
             assert(config_data.get('with_ground_truth'))
             roi_min, roi_max = get_ND_bounding_box(lab, margin = [5,20,20,0])
             roi_max[3] = img.shape[3] - 1
-            img_roi = crop_ND_volume_with_bounding_box(img, roi_min, roi_max)
-            out_roi = test_agent.test_one_volume(img_roi, test_augment)
+            img_roi    = crop_ND_volume_with_bounding_box(img, roi_min, roi_max)
+            t0 = time.time()
+            desire_size    = [img.shape[0]] + config['network']['data_shape'][1:]
+            img_roi_resize = resize_ND_volume_to_given_shape(img_roi, desire_size, order = 1)
+            out_roi_resize = test_agent.test_one_volume(img_roi_resize, test_augment)
             if(test_augment_trans):
-                img_roi_trans = np.transpose(img_roi, axes = [0, 2, 1, 3])
-                out_roi1 = test_agent.test_one_volume(img_roi_trans, test_augment)
-                out_roi1 = np.transpose(out_roi1, axes = [0, 2, 1, 3])
-                out_roi = (out_roi + out_roi1)/2
-            out_roi = np.asarray(np.argmax(out_roi, axis = 3), np.int16)
+                img_roi_trans = np.transpose(img_roi_resize, axes = [0, 2, 1, 3])
+                out_roi_resize1 = test_agent.test_one_volume(img_roi_trans, test_augment)
+                out_roi_resize1 = np.transpose(out_roi_resize1, axes = [0, 2, 1, 3])
+                out_roi_resize = (out_roi_resize + out_roi_resize1)/2
+            out_roi_resize = np.asarray(np.argmax(out_roi_resize, axis = 3), np.int16)
+            out_roi = resize_ND_volume_to_given_shape(out_roi_resize, img_roi.shape[:-1], order = 0)
             out = np.zeros(img.shape[:-1], np.uint8)
             out = set_ND_volume_roi_with_bounding_box_range(out, roi_min[:-1],
                     roi_max[:-1], out_roi)
         else:
+            t0 = time.time()
             out = test_agent.test_one_volume(img, test_augment)
             if(test_augment_trans):
                 img_trans = np.transpose(img, axes = [0, 2, 1, 3])
@@ -323,15 +325,18 @@ def model_test(config_file):
                 out1 = np.transpose(out1, axes = [0, 2, 1, 3])
                 out = (out + out1)/2
             out = np.asarray(np.argmax(out, axis = 3), np.int16)
-
+        test_time.append(time.time() - t0)
         if(not(label_source is None) and not(label_source is None)):
             out = convert_label(out, label_source, label_target)
         if(crop_z_axis):
             out_raw = np.zeros(img_raw.shape[:-1], np.uint8)
             out_raw[zmin:zmax] = out
             out = out_raw
+        if(detection_only):
+            print('detection only')
+            margin = [3, 8, 8]
+            out = get_detection_binary_bounding_box(out, margin, spacing, True)
 
-        test_time.append(time.time() - t0)
         save_name = '{0:}_{1:}.nii.gz'.format(name, config_data['output_postfix'])
         save_array_as_nifty_volume(out, config_data['save_root']+'/'+save_name)
     test_time = np.asarray(test_time)

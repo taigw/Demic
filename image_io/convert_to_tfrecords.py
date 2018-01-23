@@ -79,6 +79,7 @@ class DataLoader():
         X = []
         W = []
         Y = []
+        spacing = []
         for i in range(len(self.patient_names)):
             print(i, self.patient_names[i])
             if(self.with_weight):
@@ -99,19 +100,21 @@ class DataLoader():
             for mod_idx in range(len(self.modality_postfix)):
                 volume_name_short = self.patient_names[i] + '_' + self.modality_postfix[mod_idx] + '.' + self.file_postfix
                 volume_name = search_file_in_folder_list(self.data_root, volume_name_short)
-                volume = load_nifty_volume_as_array(volume_name)
+                volume, space = load_nifty_volume_as_array(volume_name, with_spacing = True)
                 if(self.with_weight and self.replace_background_with_random):
                     arr_random = np.random.normal(0, 1, size = volume.shape)
                     volume[weight==0] = arr_random[weight==0]
                 volume_list.append(volume)
+
             volume_array = np.asarray(volume_list)
             volume_array = np.transpose(volume_array, [1, 2, 3, 0]) # [D, H, W, C]
             X.append(volume_array)
-            
+            spacing.append(space)
         print('{0:} volumes have been loaded'.format(len(self.patient_names)))
         self.data   = X
         self.weight = W
         self.label  = Y
+        self.spacing = spacing
     
     def get_image_number(self):
         return len(self.patient_names)
@@ -125,7 +128,7 @@ class DataLoader():
             weight = self.weight[idx]
         else:
             weight = None
-        output = [self.patient_names[idx], self.data[idx], weight, label]
+        output = [self.patient_names[idx], self.data[idx], weight, label, self.spacing[idx]]
         return output
 
     def save_to_tfrecords(self):

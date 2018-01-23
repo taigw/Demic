@@ -46,9 +46,24 @@ def soft_dice_loss(prediction, soft_ground_truth, num_class, weight_map=None):
         ref_vol = tf.reduce_sum(ground, 0)
         intersect = tf.reduce_sum(ground*pred, 0)
         seg_vol = tf.reduce_sum(pred, 0)
-    dice_score = 2.0*intersect/(ref_vol + seg_vol)
+    dice_score = 2.0*intersect/(ref_vol + seg_vol + 1.0)
     dice_score = tf.reduce_mean(dice_score)
     return 1.0-dice_score
+
+
+def soft_cross_entropy_loss(prediction, soft_ground_truth, num_class, weight_map=None):
+    pred   = tf.reshape(prediction, [-1, num_class])
+    pred   = tf.nn.softmax(pred)
+    ground = tf.reshape(soft_ground_truth, [-1, num_class])
+    ce = ground* tf.log(pred)
+    if(weight_map is not None):
+        n_voxels = tf.reduce_sum(weight_map)
+        weight_map = tf.reshape(weight_map, [-1])
+        weight_map_nclass = tf.reshape(
+            tf.tile(weight_map, [num_class]), pred.get_shape())
+        ce = ce * weight_map_nclass
+    ce = -tf.reduce_mean(ce)
+    return ce
 
 def soft_size_loss1(prediction, soft_ground_truth, num_class, weight_map = None):
     pred = tf.reshape(prediction, [-1, num_class])
@@ -107,6 +122,7 @@ def get_loss_weights(iter, max_iter):
         lambda2 = 0.0
         lambda3 = 0.0
     return [lambda1, lambda2, lambda3]
+
 class TrainAgent(object):
     def __init__(self, config):
         self.config_data    = config['dataset']
@@ -125,6 +141,13 @@ class TrainAgent(object):
     def get_input_output_feed_dict(self):
         pass
     
+    def get_loss(self, predict, ground_truth, class_num, weight_map = None):
+        loss_name = self.config_train.get('loss_type', 'Dice')
+        if(loss_name == 'CE'):
+            return soft_cross_entropy_loss(predict, ground_truth, class_num, weight_map)
+        else:
+            return soft_dice_loss(predict, ground_truth, class_num, weight_map)
+
     def construct_network(self):
         batch_size  = self.config_sampler.get('batch_size', 5)
         self.full_data_shape = [batch_size] + self.config_sampler['data_shape']
@@ -192,7 +215,8 @@ class TrainAgent(object):
     def train(self):
         # start the session
         self.sess = tf.InteractiveSession()
-        self.sess.run(tf.global_variables_initializer())
+        self.sess.run(tf.initialize_all_variables())
+#        self.sess.run(tf.global_variables_initializer())
         save_vars = self.get_variable_list([self.config_net['net_name']], include = True)
         saver = tf.train.Saver(save_vars)
         
@@ -275,14 +299,14 @@ class SegmentationTrainAgent(TrainAgent):
     def __init__(self, config):
         super(SegmentationTrainAgent, self).__init__(config)
         assert(self.config_sampler['patch_mode'] <=3)
-    
+            
     def get_output_and_loss(self):
         self.class_num = self.config_net['class_num']
         multi_scale_loss = self.config_train.get('multi_scale_loss', False)
         gradual_train    = self.config_train.get('gradual_train', False)
         size_constraint  = self.config_train.get('size_constraint', False)
-        loss_func = SegmentationLoss(n_class=self.class_num)
-        
+#        loss_func = SegmentationLoss(n_class=self.class_num)
+
         full_weight_shape = [x for x in self.full_out_shape]
         full_weight_shape[-1] = 1
         self.w = tf.placeholder(tf.float32, shape = full_weight_shape)
@@ -297,21 +321,21 @@ class SegmentationTrainAgent(TrainAgent):
                         w_regularizer = w_regularizer,
                         b_regularizer = b_regularizer,
                         name = self.config_net['net_name'])
-        self.predicty = net(self.x, is_training = self.config_net['bn_training'], bn_momentum=self.m)
+        predicty = net(self.x, is_training = self.config_net['bn_training'], bn_momentum=self.m)
+        self.predicty = tf.reshape(predicty, self.full_out_shape[:-1] + [self.class_num])
         print('network output shape ', self.predicty.shape)
-        loss = loss_func(self.predicty, self.y, weight_map = self.w)
+        y_soft  = get_soft_label(self.y, self.class_num)
+        loss = self.get_loss(self.predicty, y_soft, self.class_num, weight_map = self.w)
         if(multi_scale_loss):
-            y_soft  = get_soft_label(self.y, self.class_num)
             print('use soft dice loss')
-            loss = soft_dice_loss(self.predicty, y_soft, self.class_num)
             
             y_pool1 = tf.nn.pool(y_soft, [1, 2, 2], 'AVG', 'VALID', strides = [1, 2, 2])
             predy_pool1 = tf.nn.pool(self.predicty, [1, 2, 2], 'AVG', 'VALID', strides = [1, 2, 2])
-            loss1 = soft_dice_loss(predy_pool1, y_pool1, self.class_num)
+            loss1 =  self.get_loss(predy_pool1, y_pool1, self.class_num)
 
             y_pool2 = tf.nn.pool(y_soft, [1, 4, 4], 'AVG', 'VALID', strides = [1, 4, 4])
             predy_pool2 = tf.nn.pool(self.predicty, [1, 4, 4], 'AVG', 'VALID', strides = [1, 4, 4])
-            loss2 = soft_dice_loss(predy_pool2, y_pool2, self.class_num)
+            loss2 =  self.get_loss(predy_pool2, y_pool2, self.class_num)
 
             if(gradual_train):
                 print('use gradual train')
@@ -323,7 +347,6 @@ class SegmentationTrainAgent(TrainAgent):
                 loss = (loss + loss1 + loss2 )/3.0
         if(size_constraint):
             print('use size constraint loss')
-            y_soft = get_soft_label(self.y, self.class_num)
             size_loss = soft_size_loss(self.predicty, y_soft, self.class_num, weight_map = None)
             loss = loss*0.8 + 0.2*size_loss
         self.loss = loss
@@ -332,7 +355,7 @@ class SegmentationTrainAgent(TrainAgent):
         y_reshape = tf.reshape(self.y, tf.shape(pred))
         intersect = tf.cast(tf.reduce_sum(pred * y_reshape), tf.float32)
         volume_sum = tf.cast(tf.reduce_sum(pred) + tf.reduce_sum(y_reshape), tf.float32)
-        self.dice = 2.0*intersect/volume_sum
+        self.dice = 2.0*intersect/(volume_sum + 1.0)
             
     def get_input_output_feed_dict(self, stage, net_idx = 0):
         while(True):

@@ -2,6 +2,7 @@
 from __future__ import absolute_import, print_function
 import os
 import sys
+import math
 import numpy as np
 from scipy import ndimage
 
@@ -42,17 +43,57 @@ def get_largest_component(img): # 2D or 3D
     max_label = np.where(sizes == sizes.max())[0] + 1
     return labeled_array == max_label
 
-def get_detection_binary_bounding_box(img, margin):
+def get_detection_binary_bounding_box(img, margin, spacing = [1,1,1], robust = False):
     strt = ndimage.generate_binary_structure(3,2) # iterate structure
-    post = ndimage.morphology.binary_closing(img, strt)
+    post = padded_binary_closing(img, strt)
     post = get_largest_component(post)
-    bb_min, bb_max = get_ND_bounding_box(post, margin)
+    if(robust):
+        bb_min, bb_max = get_robust_3d_bounding_box(post, margin, spacing)
+    else:
+        bb_min, bb_max = get_ND_bounding_box(post, margin)
     out = np.zeros_like(img)
     out[np.ix_(range(bb_min[0], bb_max[0] + 1),
                    range(bb_min[1], bb_max[1] + 1),
                    range(bb_min[2], bb_max[2] + 1))] = 1
     return out
 
+def padded_binary_closing(img, strt):
+    [D, H, W] = img.shape
+    temp_img = np.zeros([D+2, H+2, W+2])
+    temp_img[1:D+1, 1:H+1, 1:W+1] = img
+    temp_img = ndimage.morphology.binary_closing(temp_img, strt)
+    return temp_img[1:D+1, 1:H+1, 1:W+1]
+
+def get_robust_3d_bounding_box(label, margin, spacing):
+    # 1, get central point
+    d_list, h_list, w_list = np.nonzero(label)
+    d_c = int(d_list.mean())
+    
+    # 2, infer bounding box size
+    [D, H, W] = label.shape
+    sub_volume = label[max(0, d_c -2) : min(d_c + 2, D-1)]
+    mean_slice = np.asarray(np.mean(sub_volume, axis = 0), np.uint8)
+    [idx2d_min, idx2d_max] = get_ND_bounding_box(mean_slice, [margin[1], margin[2]])
+    roi_h = idx2d_max[0] - idx2d_min[0]
+    roi_w = idx2d_max[1] - idx2d_min[1]
+    roi_d = int(math.sqrt(roi_h * roi_w * spacing[1] * spacing[2])/spacing[0])
+    print('bbox size', roi_d, roi_h, roi_w)
+    # adjust bouding box along z axis
+    sub_volume = crop_ND_volume_with_bounding_box(label, [0] + idx2d_min, [D-1] + idx2d_max)
+    slice_size = np.sum(sub_volume, axis = (1,2))
+    idx_d_min, idx_d_max =  0, min(roi_d, D-1)
+    size_sum = 0
+    for temp_d_min in range(max(0, D - roi_d)):
+        temp_d_max = min(temp_d_min + roi_d, D-1)
+        temp_size  = np.sum(slice_size[temp_d_min:temp_d_max + 1])
+        if(temp_size > size_sum):
+            size_sum = temp_size
+            idx_d_min = temp_d_min
+            idx_d_max = temp_d_max
+
+    bb_min = [idx_d_min] + idx2d_min
+    bb_max = [idx_d_max] + idx2d_max
+    return bb_min, bb_max
 
 ## for ND images
 def itensity_normalize_one_volume(volume, mask = None, replace = False):
