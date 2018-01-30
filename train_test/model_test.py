@@ -139,21 +139,34 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
             prob = set_roi_to_nd_volume(prob, roi_center, prob_mini_batch[batch_idx-batch_start_idx])
     return prob
 
-def get_augment_prediction(pad_img, data_shape, label_shape,
+def get_augment_prediction(img, data_shape, label_shape,
                            class_num, batch_size, sess, x, proby):
-    [D, H, W, C] = pad_img.shape
-    flip1 = np.flip(pad_img, axis = 2)
-    flip2 = np.flip(pad_img, axis = 1)
+    [D, H, W, C] = img.shape
+    flip1 = np.flip(img, axis = 2)
+    flip2 = np.flip(img, axis = 1)
     flip3 = np.flip(flip1, axis = 1)
-    all_input  = np.concatenate((pad_img, flip1, flip2, flip3))
+    
+    img_trans = np.transpose(img, axes = [0, 2, 1, 3])
+    flip4 = np.flip(img_trans, axis = 2)
+    flip5 = np.flip(img_trans, axis = 1)
+    flip6 = np.flip(flip4, axis = 1)
+    
+    all_input  = np.concatenate((img, flip1, flip2, flip3, img_trans, flip4, flip5, flip6))
     all_output = volume_probability_prediction_3d_roi(all_input, data_shape, label_shape,
                                                class_num, batch_size, sess, x, proby)
-    outputp  = all_output[0:D]
-    outputp1 = np.flip(all_output[D:2*D], axis = 2)
-    outputp2 = np.flip(all_output[2*D:3*D], axis = 1)
-    outputp3 = np.flip(all_output[3*D:4*D], axis = 1)
-    outputp3 = np.flip(outputp3, axis = 2)
-    return (outputp + outputp1 + outputp2 + outputp3)/4
+    outp1  = all_output[0:D]
+    outp2 = np.flip(all_output[D:2*D], axis = 2)
+    outp3 = np.flip(all_output[2*D:3*D], axis = 1)
+    outp4 = np.flip(all_output[3*D:4*D], axis = 1)
+    outp4 = np.flip(outp4, axis = 2)
+    
+    outp5 = all_output[4*D:5*D]
+    outp6 = np.flip(all_output[5*D:6*D], axis = 2)
+    outp7 = np.flip(all_output[6*D:7*D], axis = 1)
+    outp8 = np.flip(all_output[7*D:8*D], axis = 1)
+    outp8 = np.flip(outp8, axis = 2)
+    
+    return (outp1 + outp2 + outp3 + outp4 + outp5 + outp6 + outp7 + outp8)/4
 
 def convert_label(in_volume, label_convert_source, label_convert_target):
     mask_volume = np.zeros_like(in_volume)
@@ -267,10 +280,10 @@ def model_test(config_file):
     class_num = config['network']['class_num']
     crop_z_axis = config['testing']['crop_z_axis']
     detection_only = config['testing'].get('detection_only', False)
+    bbox_mode      = config['testing'].get('bbox_mode', 0)
     label_source = config_data.get('label_convert_source', None)
     label_target = config_data.get('label_convert_target', None)
     test_augment = config_data.get('test_augment', False)
-    test_augment_trans = config_data.get('test_augment_trans', False)
     if(not(label_source is None) and not(label_source is None)):
         assert(len(label_source) == len(label_target))
     img_num = data_loader.get_image_number()
@@ -278,6 +291,7 @@ def model_test(config_file):
     print('image number', img_num)
     for i in range(img_num):
         [name, img_raw, weight_raw, lab_raw, spacing] = data_loader.get_image(i)
+        print(name)
         if(crop_z_axis):
             roi_min, roi_max = get_ND_bounding_box(lab_raw, margin = [15,20,20,0])
             zmin = roi_min[0]; zmax = roi_max[0]
@@ -289,11 +303,6 @@ def model_test(config_file):
             img_resize = resize_ND_volume_to_given_shape(img, desire_size, order = 1)
             print('resized image', img_resize.shape)
             out_resize = test_agent.test_one_volume(img_resize, test_augment)
-            if(test_augment_trans):
-                img_trans = np.transpose(img_resize, axes = [0, 2, 1, 3])
-                out1 = test_agent.test_one_volume(img_trans, test_augment)
-                out1 = np.transpose(out1, axes = [0, 2, 1, 3])
-                out_resize = (out_resize + out1)/2
             out = resize_ND_volume_to_given_shape(out_resize, \
                     list(img.shape[:-1]) + [class_num], order = 1)
             out = np.asarray(np.argmax(out, axis = 3), np.int16)
@@ -306,11 +315,6 @@ def model_test(config_file):
             desire_size    = [img.shape[0]] + config['network']['data_shape'][1:]
             img_roi_resize = resize_ND_volume_to_given_shape(img_roi, desire_size, order = 1)
             out_roi_resize = test_agent.test_one_volume(img_roi_resize, test_augment)
-            if(test_augment_trans):
-                img_roi_trans = np.transpose(img_roi_resize, axes = [0, 2, 1, 3])
-                out_roi_resize1 = test_agent.test_one_volume(img_roi_trans, test_augment)
-                out_roi_resize1 = np.transpose(out_roi_resize1, axes = [0, 2, 1, 3])
-                out_roi_resize = (out_roi_resize + out_roi_resize1)/2
             out_roi_resize = np.asarray(np.argmax(out_roi_resize, axis = 3), np.int16)
             out_roi = resize_ND_volume_to_given_shape(out_roi_resize, img_roi.shape[:-1], order = 0)
             out = np.zeros(img.shape[:-1], np.uint8)
@@ -319,11 +323,6 @@ def model_test(config_file):
         else:
             t0 = time.time()
             out = test_agent.test_one_volume(img, test_augment)
-            if(test_augment_trans):
-                img_trans = np.transpose(img, axes = [0, 2, 1, 3])
-                out1 = test_agent.test_one_volume(img_trans, test_augment)
-                out1 = np.transpose(out1, axes = [0, 2, 1, 3])
-                out = (out + out1)/2
             out = np.asarray(np.argmax(out, axis = 3), np.int16)
         test_time.append(time.time() - t0)
         if(not(label_source is None) and not(label_source is None)):
@@ -333,9 +332,8 @@ def model_test(config_file):
             out_raw[zmin:zmax] = out
             out = out_raw
         if(detection_only):
-            print('detection only')
-            margin = [3, 8, 8]
-            out = get_detection_binary_bounding_box(out, margin, spacing, True)
+            margin = config['testing'].get('margin', [3,8,8])
+            out = get_detection_binary_bounding_box(out, margin, spacing, bbox_mode)
 
         save_name = '{0:}_{1:}.nii.gz'.format(name, config_data['output_postfix'])
         save_array_as_nifty_volume(out, config_data['save_root']+'/'+save_name)
