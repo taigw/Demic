@@ -42,9 +42,9 @@ class UNet2D(TrainableLayer):
     
     def layer_op(self, images, is_training, bn_momentum=0.9, layer_id=-1):
         # image_size  should be divisible by 8
-        spatial_dims = images.get_shape()[1:-1].as_list()
-        assert (spatial_dims[-2] % 16 == 0 )
-        assert (spatial_dims[-1] % 16 == 0 )
+#        spatial_dims = images.get_shape()[1:-1].as_list()
+#        assert (spatial_dims[-2] % 16 == 0 )
+#        assert (spatial_dims[-1] % 16 == 0 )
         
         block1 = UNetBlock((self.n_features[0], self.n_features[0]),
                             ((1,3,3), (1,3,3)),

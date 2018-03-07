@@ -30,9 +30,11 @@ class PNet(TrainableLayer):
         if(parameters is None):
             self.n_features = [64, 64, 64, 64, 64]
             self.dilations  = [1, 2, 3, 4, 5]
+            self.dropout = 0.8
         else:
             self.n_features = parameters.get('num_features', [64, 64, 64, 64, 64])
-            self.dilations  = parameters.get('num_features', [1, 2, 3, 4, 5])
+            self.dilations  = parameters.get('dilations', [1, 2, 3, 4, 5])
+            self.dropout    = parameters.get('dropout', 0.8)
         self.acti_func = acti_func
         self.num_classes = num_classes
         
@@ -97,9 +99,9 @@ class PNet(TrainableLayer):
         f5 = block5(f4, is_training, bn_momentum)
         
         fcat = tf.concat((f1, f2, f3, f4, f5), axis = -1)
-        f6 = tf.nn.dropout(fcat, 0.8)
+        f6 = tf.nn.dropout(fcat, self.dropout)
         f6 = conv6_1(f6, is_training, bn_momentum)
-        f6 = tf.nn.dropout(f6, 0.8)
+        f6 = tf.nn.dropout(f6, self.dropout)
         f6 = conv6_2(f6, is_training, bn_momentum)
         
         output = f6
