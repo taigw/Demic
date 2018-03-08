@@ -30,8 +30,11 @@ class UNet2D(TrainableLayer):
         
         if(parameters is None):
             self.n_features = [64, 128, 256, 256, 256]
+            self.dropout    = 0.8
         else:
             self.n_features = parameters.get('num_features', [64, 128, 256, 256, 256])
+            self.dropout    = parameters.get('dropout', 0.8)
+        
         self.acti_func = acti_func
         self.num_classes = num_classes
         
@@ -134,24 +137,33 @@ class UNet2D(TrainableLayer):
         f4 = block4(d3, is_training, bn_momentum)
         d4 = down4(f4)
         f5 = block5(d4, is_training, bn_momentum)
+        # add dropout to the original version
+        f5 = tf.nn.dropout(f5, self.dropout)
         
         f5up = up1(f5, is_training, bn_momentum)
         f4cat = tf.concat((f4, f5up), axis = -1)
         f6 = block6(f4cat, is_training, bn_momentum)
-        
+        # add dropout to the original version
+        f6 = tf.nn.dropout(f6, self.dropout)
+
         f6up = up2(f6, is_training, bn_momentum)
         f3cat = tf.concat((f3, f6up), axis = -1)
         f7 = block7(f3cat, is_training, bn_momentum)
+        # add dropout to the original version
+        f7 = tf.nn.dropout(f7, self.dropout)
 
         f7up = up3(f7, is_training, bn_momentum)
         f2cat = tf.concat((f2, f7up), axis = -1)
         f8 = block8(f2cat, is_training, bn_momentum)
-        
+        # add dropout to the original version
+        f8 = tf.nn.dropout(f8, self.dropout)
+
         f8up = up4(f8, is_training, bn_momentum)
         f1cat = tf.concat((f1, f8up), axis = -1)
         f9 = block9(f1cat, is_training, bn_momentum)
+        # add dropout to the original version
+        f9 = tf.nn.dropout(f9, self.dropout)
         output = conv(f9)
-
         return output
 
 
