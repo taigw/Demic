@@ -331,8 +331,8 @@ class TestAgent:
         test_time = []
         print('image number', img_num)
         for i in range(img_num):
-            [name, img_raw, weight_raw, lab_raw, spacing] = data_loader.get_image(i)
-            print(name)
+            [patient_name, file_names, img_raw, weight_raw, lab_raw, spacing] = data_loader.get_image(i)
+            print(patient_name)
             if(crop_z_axis):
                 roi_min, roi_max = get_ND_bounding_box(lab_raw, margin = [15,20,20,0])
                 zmin = roi_min[0]; zmax = roi_max[0]
@@ -389,11 +389,11 @@ class TestAgent:
             if(detection_only):
                 margin = self.config_test.get('margin', [3,8,8])
                 out = get_detection_binary_bounding_box(out, margin, spacing, bbox_mode)
-            save_name = '{0:}_{1:}.nii.gz'.format(name, self.config_data['output_postfix'])
-            save_array_as_nifty_volume(out, self.config_data['save_root']+'/'+save_name)
+            save_name = '{0:}_{1:}.nii.gz'.format(patient_name, self.config_data['output_postfix'])
+            save_array_as_nifty_volume(out, self.config_data['save_root']+'/'+save_name, file_names[0])
             if(self.config_test.get('save_probability', False)):
-                save_name = '{0:}_{1:}.nii.gz'.format(name, 'Prob')
-                save_array_as_nifty_volume(outp, self.config_data['save_root']+'/'+save_name)
+                save_name = '{0:}_{1:}.nii.gz'.format(patient_name, 'Prob')
+                save_array_as_nifty_volume(outp, self.config_data['save_root']+'/'+save_name, file_names[0])
         test_time = np.asarray(test_time)
         print('test time', test_time.mean(), test_time.std())
         np.savetxt(self.config_data['save_root'] + '/test_time.txt', test_time)

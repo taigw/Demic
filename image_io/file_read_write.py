@@ -1,7 +1,7 @@
 import os
 import nibabel
 import numpy as np
-
+import SimpleITK as sitk
 
 def search_file_in_folder_list(folder_list, file_name):
     """ search a file with a part of name in a list of folders
@@ -39,8 +39,7 @@ def load_nifty_volume_as_array(filename, with_spacing=False):
         return data, spacing
     return data
 
-
-def save_array_as_nifty_volume(data, filename):
+def save_array_as_nifty_volume_backup(data, filename):
     """Write a numpy array as nifty image
         numpy data shape [D, H, W]
         nifty image shape [W, H, D]
@@ -48,3 +47,18 @@ def save_array_as_nifty_volume(data, filename):
     data = np.transpose(data, [2, 1, 0])
     img = nibabel.Nifti1Image(data, np.eye(4))
     nibabel.save(img, filename)
+
+def save_array_as_nifty_volume(data, filename, reference_name = None):
+    """
+    save a numpy array as nifty image
+    inputs:
+        data: a numpy array with shape [Depth, Height, Width]
+        filename: the ouput file name
+        reference_name: file name of the reference image of which affine and header are used
+    outputs: None
+    """
+    img = sitk.GetImageFromArray(data)
+    if(reference_name is not None):
+        img_ref = sitk.ReadImage(reference_name)
+        img.CopyInformation(img_ref)
+    sitk.WriteImage(img, filename)

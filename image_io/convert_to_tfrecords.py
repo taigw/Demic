@@ -76,6 +76,7 @@ class DataLoader():
         if(not(self.data_subset is None)):
             patient_names = patient_names[self.data_subset[0]:self.data_subset[1]]
         self.patient_names = patient_names
+        file_names = []
         X = []
         W = []
         Y = []
@@ -97,6 +98,7 @@ class DataLoader():
                 y_array = np.transpose(y_array, [1, 2, 3, 0]) # [D, H, W, C]
                 Y.append(y_array)  
             volume_list = []
+            file_list   = []
             for mod_idx in range(len(self.modality_postfix)):
                 volume_name_short = self.patient_names[i] + '_' + self.modality_postfix[mod_idx] + '.' + self.file_postfix
                 volume_name = search_file_in_folder_list(self.data_root, volume_name_short)
@@ -105,15 +107,18 @@ class DataLoader():
                     arr_random = np.random.normal(0, 1, size = volume.shape)
                     volume[weight==0] = arr_random[weight==0]
                 volume_list.append(volume)
+                file_list.append(volume_name)
 
             volume_array = np.asarray(volume_list)
             volume_array = np.transpose(volume_array, [1, 2, 3, 0]) # [D, H, W, C]
             X.append(volume_array)
+            file_names.append(file_list)
             spacing.append(space)
         print('{0:} volumes have been loaded'.format(len(self.patient_names)))
         self.data   = X
         self.weight = W
         self.label  = Y
+        self.file_names = file_names
         self.spacing = spacing
     
     def get_image_number(self):
@@ -128,7 +133,8 @@ class DataLoader():
             weight = self.weight[idx]
         else:
             weight = None
-        output = [self.patient_names[idx], self.data[idx], weight, label, self.spacing[idx]]
+        output = [self.patient_names[idx], self.file_names[idx],
+                  self.data[idx], weight, label, self.spacing[idx]]
         return output
 
     def save_to_tfrecords(self):
