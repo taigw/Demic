@@ -346,7 +346,10 @@ class TestAgent:
                 out_resize = self.test_one_volume(img_resize)
                 out = resize_ND_volume_to_given_shape(out_resize, \
                         list(img.shape[:-1]) + [class_num], order = 1)
+                outp = np.asarray(out[:,:,:, -1], np.float32)
                 out = np.asarray(np.argmax(out, axis = 3), np.int16)
+            
+            
             elif(self.config_data.get('crop_with_bounding_box', False)):
                 assert(self.config_data.get('with_ground_truth'))
                 roi_min, roi_max = get_ND_bounding_box(lab, margin = [5,20,20,0])
@@ -356,17 +359,23 @@ class TestAgent:
                 desire_size    = [img.shape[0]] + self.config_net['data_shape'][1:]
                 img_roi_resize = resize_ND_volume_to_given_shape(img_roi, desire_size, order = 1)
                 out_roi_resize = self.test_one_volume(img_roi_resize)
+                outp_roi_resize= np.asarray(out_roi_resize[:,:,:,-1], np.float32)
                 out_roi_resize = np.asarray(np.argmax(out_roi_resize, axis = 3), np.int16)
-    #            out_roi_resize = np.asarray(out_roi_resize[:,:,:,1]*255, np.int8)
-
-                out_roi = resize_ND_volume_to_given_shape(out_roi_resize, img_roi.shape[:-1], order = 0)
+                
+                outp_roi = resize_ND_volume_to_given_shape(outp_roi_resize, img_roi.shape[:-1], order = 1)
+                outp = np.zeros(img.shape[:-1], np.float32)
+                outp = set_ND_volume_roi_with_bounding_box_range(outp, roi_min[:-1], roi_max[:-1], outp_roi)
+                
+                out_roi  = resize_ND_volume_to_given_shape(out_roi_resize, img_roi.shape[:-1], order = 0)
                 out = np.zeros(img.shape[:-1], np.uint8)
-                out = set_ND_volume_roi_with_bounding_box_range(out, roi_min[:-1],
-                        roi_max[:-1], out_roi)
+                out = set_ND_volume_roi_with_bounding_box_range(out, roi_min[:-1], roi_max[:-1], out_roi)
+
             else:
-                t0 = time.time()
+                t0  = time.time()
                 out = self.test_one_volume(img)
+                outp= np.asarray(out[:, :, :, -1], np.float32)
                 out = np.asarray(np.argmax(out, axis = 3), np.int16)
+
             test_time.append(time.time() - t0)
             if(not(label_source is None) and not(label_source is None)):
                 out = convert_label(out, label_source, label_target)
@@ -374,12 +383,17 @@ class TestAgent:
                 out_raw = np.zeros(img_raw.shape[:-1], np.uint8)
                 out_raw[zmin:zmax] = out
                 out = out_raw
+                outp_raw = np.zeros(img_raw.shape[:-1], np.float32)
+                outp_raw[zmin:zmax] = outp
+                outp = outp_raw
             if(detection_only):
                 margin = self.config_test.get('margin', [3,8,8])
                 out = get_detection_binary_bounding_box(out, margin, spacing, bbox_mode)
-
             save_name = '{0:}_{1:}.nii.gz'.format(name, self.config_data['output_postfix'])
             save_array_as_nifty_volume(out, self.config_data['save_root']+'/'+save_name)
+            if(self.config_test.get('save_probability', False)):
+                save_name = '{0:}_{1:}.nii.gz'.format(name, 'Prob')
+                save_array_as_nifty_volume(outp, self.config_data['save_root']+'/'+save_name)
         test_time = np.asarray(test_time)
         print('test time', test_time.mean(), test_time.std())
         np.savetxt(self.config_data['save_root'] + '/test_time.txt', test_time)
