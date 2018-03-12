@@ -152,11 +152,13 @@ def get_rotation_augmented_prediction(img, data_shape, label_shape, class_num, b
         pred_rotate = volume_probability_prediction_3d_roi(img_rotate, data_shape, label_shape,
                                                    class_num, batch_size, sess, x, proby)
         pred = ndimage.interpolation.rotate(pred_rotate, - angle, axes = (1, 2),reshape = False)
+        pred = np.asarray(np.argmax(pred, axis = 3), np.float32)
         pred_list.append(pred)
     pred = np.asarray(pred_list)
-    pred = np.mean(pred, axis = 0)
-    return pred
-
+    # the following way to calculate probability is only valid for binary segmentation
+    # get foreground probability
+    pred_p = np.mean(pred, axis = 0)
+    return pred_p
 
 def get_dropout_augmented_prediction(img, data_shape, label_shape, class_num, batch_size, sess, x, proby, aug_number):
     [D, H, W, C] = img.shape
@@ -164,10 +166,13 @@ def get_dropout_augmented_prediction(img, data_shape, label_shape, class_num, ba
     for i in range(aug_number):
         pred = volume_probability_prediction_3d_roi(img, data_shape, label_shape,
                                                    class_num, batch_size, sess, x, proby)
+        pred = np.asarray(np.argmax(pred, axis = 3), np.float32)
         pred_list.append(pred)
     pred = np.asarray(pred_list)
-    pred = np.mean(pred, axis = 0)
-    return pred
+    # the following way to calculate probability and label is only valid for binary segmentation
+    # get foreground probability
+    pred_p = np.mean(pred, axis = 0)
+    return pred_p
 
 
 def get_flip_augmented_prediction(img, data_shape, label_shape,
@@ -185,6 +190,7 @@ def get_flip_augmented_prediction(img, data_shape, label_shape,
     all_input  = np.concatenate((img, flip1, flip2, flip3, img_trans, flip4, flip5, flip6))
     all_output = volume_probability_prediction_3d_roi(all_input, data_shape, label_shape,
                                                class_num, batch_size, sess, x, proby)
+    all_output = np.asarray(np.argmax(all_output, axis = 3), np.float32)
     outp1  = all_output[0:D]
     outp2 = np.flip(all_output[D:2*D], axis = 2)
     outp3 = np.flip(all_output[2*D:3*D], axis = 1)
@@ -197,7 +203,10 @@ def get_flip_augmented_prediction(img, data_shape, label_shape,
     outp8 = np.flip(all_output[7*D:8*D], axis = 1)
     outp8 = np.flip(outp8, axis = 2)
     
-    return (outp1 + outp2 + outp3 + outp4 + outp5 + outp6 + outp7 + outp8)/4
+    pred = np.asarray([outp1, outp2, outp3, outpt4, outp5, outp6, outp7, outp8])
+    # get foreground probability
+    pred_p = np.mean(pred, axis = 0)
+    return pred_p
 
 def convert_label(in_volume, label_convert_source, label_convert_target):
     mask_volume = np.zeros_like(in_volume)
@@ -303,17 +312,18 @@ class TestAgent:
             outputp = get_rotation_augmented_prediction(pad_img, data_shape, label_shape,
                                             class_num, batch_size, self.sess, self.x, self.proby, augment_num)
         elif(test_augment == 3):
-            outputp = get_dropout_augmented_prediction(pad_img, data_shape, label_shape,
+            outputp  = get_dropout_augmented_prediction(pad_img, data_shape, label_shape,
                                             class_num, batch_size, self.sess, self.x, self.proby, augment_num)
         else:
             outputp = volume_probability_prediction_3d_roi(pad_img, data_shape, label_shape,
                                                 class_num, batch_size, self.sess, self.x, self.proby)
-        outputp = outputp[np.ix_(range(D), range(H), range(W), range(class_num))]
+            outputp = outputp[:, :, :, -1] # get foreground probability
         if(shape_mode == 1):
-            outputp = resize_ND_volume_to_given_shape(outputp, list(img.shape[:-1]) + [class_num], order = 1)
+            outputp = resize_ND_volume_to_given_shape(outputp, list(img.shape[:-1]), order = 1)
         return outputp
 
     def test(self):
+        random.seed(100)
         self.construct_network()
         data_loader = DataLoader(self.config_data)
         data_loader.load_data()
@@ -343,11 +353,10 @@ class TestAgent:
                 desire_size = [img.shape[0]] + self.config_net['data_shape'][1:]
                 img_resize = resize_ND_volume_to_given_shape(img, desire_size, order = 1)
                 print('resized image', img_resize.shape)
-                out_resize = self.test_one_volume(img_resize)
-                out = resize_ND_volume_to_given_shape(out_resize, \
-                        list(img.shape[:-1]) + [class_num], order = 1)
-                outp = np.asarray(out[:,:,:, -1], np.float32)
-                out = np.asarray(np.argmax(out, axis = 3), np.int16)
+                outp_resize = self.test_one_volume(img_resize)
+                outp = resize_ND_volume_to_given_shape(outp_resize, \
+                        list(img.shape[:-1]), order = 1)
+                out = np.asarray(outp >= 0.5, np.int8)
             
             
             elif(self.config_data.get('crop_with_bounding_box', False)):
@@ -358,23 +367,15 @@ class TestAgent:
                 t0 = time.time()
                 desire_size    = [img.shape[0]] + self.config_net['data_shape'][1:]
                 img_roi_resize = resize_ND_volume_to_given_shape(img_roi, desire_size, order = 1)
-                out_roi_resize = self.test_one_volume(img_roi_resize)
-                outp_roi_resize= np.asarray(out_roi_resize[:,:,:,-1], np.float32)
-                out_roi_resize = np.asarray(np.argmax(out_roi_resize, axis = 3), np.int16)
-                
+                outp_roi_resize = self.test_one_volume(img_roi_resize)
                 outp_roi = resize_ND_volume_to_given_shape(outp_roi_resize, img_roi.shape[:-1], order = 1)
                 outp = np.zeros(img.shape[:-1], np.float32)
                 outp = set_ND_volume_roi_with_bounding_box_range(outp, roi_min[:-1], roi_max[:-1], outp_roi)
-                
-                out_roi  = resize_ND_volume_to_given_shape(out_roi_resize, img_roi.shape[:-1], order = 0)
-                out = np.zeros(img.shape[:-1], np.uint8)
-                out = set_ND_volume_roi_with_bounding_box_range(out, roi_min[:-1], roi_max[:-1], out_roi)
-
+                out = np.asarray(outp >= 0.5, np.int8)
             else:
                 t0  = time.time()
-                out = self.test_one_volume(img)
-                outp= np.asarray(out[:, :, :, -1], np.float32)
-                out = np.asarray(np.argmax(out, axis = 3), np.int16)
+                outp = self.test_one_volume(img)
+                out = np.asarray(outp >= 0.5, np.int8)
 
             test_time.append(time.time() - t0)
             if(not(label_source is None) and not(label_source is None)):
