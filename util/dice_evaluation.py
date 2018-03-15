@@ -36,6 +36,7 @@ def dice_evaluation(config_file):
     s_postfix = config.get('segmentation_postfix',None)
     g_postfix = config.get('ground_truth_postfix',None)
     remove_outlier = config.get('remove_outlier',False)
+    file_postfix   = config.get('file_postfix','dice')
     s_postfix = '.nii.gz' if (s_postfix is None) else '_' + s_postfix + '.nii.gz'
     g_postfix = '.nii.gz' if (g_postfix is None) else '_' + g_postfix + '.nii.gz'
     patient_names_file = config['patient_file_names']
@@ -66,9 +67,9 @@ def dice_evaluation(config_file):
     dice_all_data = np.asarray(dice_all_data)
     dice_mean = [dice_all_data.mean(axis = 0)]
     dice_std  = [dice_all_data.std(axis = 0)]
-    np.savetxt(s_folder + '/dice_all.txt', dice_all_data)
-    np.savetxt(s_folder + '/dice_mean.txt', dice_mean)
-    np.savetxt(s_folder + '/dice_std.txt', dice_std)
+    np.savetxt("{0:}/{1:}_all.txt".format(s_folder, file_postfix), dice_all_data)
+    np.savetxt("{0:}/{1:}_mean.txt".format(s_folder, file_postfix), dice_mean)
+    np.savetxt("{0:}/{1:}_std.txt".format(s_folder, file_postfix), dice_std)
     print('dice mean ', dice_mean)
     print('dice std  ', dice_std)
     
