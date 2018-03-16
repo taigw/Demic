@@ -16,6 +16,7 @@ from Demic.image_io.file_read_write import *
 from Demic.image_io.convert_to_tfrecords import DataLoader
 from Demic.util.parse_config import parse_config
 from Demic.util.image_process import *
+from Demic.util.dice_evaluation import binary_dice3d
 
 def extract_roi_from_nd_volume(volume, roi_center, roi_shape, fill = 'random'):
     '''Extract an roi from a nD volume
@@ -141,9 +142,11 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
     return prob
 
 
-def get_rotation_augmented_prediction(img, data_shape, label_shape, class_num, batch_size, sess, x, proby, aug_number):
+def get_rotation_augmented_prediction(img, data_shape, label_shape, class_num, batch_size, sess, x, proby, lab, aug_number):
     [D, H, W, C] = img.shape
+    lab = np.reshape(lab, [D, H, W])
     pred_list = []
+    dice_list = []
     for i in range(aug_number):
 #        pred = volume_probability_prediction_3d_roi(img, data_shape, label_shape,
 #                                                   class_num, batch_size, sess, x, proby)
@@ -153,31 +156,38 @@ def get_rotation_augmented_prediction(img, data_shape, label_shape, class_num, b
                                                    class_num, batch_size, sess, x, proby)
         pred = ndimage.interpolation.rotate(pred_rotate, - angle, axes = (1, 2),reshape = False)
         pred = np.asarray(np.argmax(pred, axis = 3), np.float32)
+        dice = binary_dice3d(lab, pred)
         pred_list.append(pred)
+        dice_list.append(dice)
     pred = np.asarray(pred_list)
     # the following way to calculate probability is only valid for binary segmentation
     # get foreground probability
     pred_p = np.mean(pred, axis = 0)
-    return pred_p
+    return pred_p, dice_list
 
-def get_dropout_augmented_prediction(img, data_shape, label_shape, class_num, batch_size, sess, x, proby, aug_number):
+def get_dropout_augmented_prediction(img, data_shape, label_shape, class_num, batch_size, sess, x, proby, lab, aug_number):
     [D, H, W, C] = img.shape
+    lab = np.reshape(lab, [D, H, W])
     pred_list = []
+    dice_list = []
     for i in range(aug_number):
         pred = volume_probability_prediction_3d_roi(img, data_shape, label_shape,
                                                    class_num, batch_size, sess, x, proby)
         pred = np.asarray(np.argmax(pred, axis = 3), np.float32)
+        dice = binary_dice3d(lab, pred)
         pred_list.append(pred)
+        dice_list.append(dice)
     pred = np.asarray(pred_list)
     # the following way to calculate probability and label is only valid for binary segmentation
     # get foreground probability
     pred_p = np.mean(pred, axis = 0)
-    return pred_p
+    return pred_p, dice_list
 
 
 def get_flip_augmented_prediction(img, data_shape, label_shape,
-                           class_num, batch_size, sess, x, proby):
+                           class_num, batch_size, sess, x, proby, lab):
     [D, H, W, C] = img.shape
+    lab = np.reshape(lab, [D, H, W])
     flip1 = np.flip(img, axis = 2)
     flip2 = np.flip(img, axis = 1)
     flip3 = np.flip(flip1, axis = 1)
@@ -204,9 +214,14 @@ def get_flip_augmented_prediction(img, data_shape, label_shape,
     outp8 = np.flip(outp8, axis = 2)
     
     pred = np.asarray([outp1, outp2, outp3, outpt4, outp5, outp6, outp7, outp8])
+    dice1 = binary_dice3d(lab, outp1); dice2 = binary_dice3d(lab, outp2)
+    dice3 = binary_dice3d(lab, outp1); dice4 = binary_dice3d(lab, outp2)
+    dice5 = binary_dice3d(lab, outp1); dice6 = binary_dice3d(lab, outp2)
+    dice7 = binary_dice3d(lab, outp1); dice8 = binary_dice3d(lab, outp2)
+    dice_list = [dice1, dice2, dice3, dice4, dice5, dice6, dice7, dice8]
     # get foreground probability
     pred_p = np.mean(pred, axis = 0)
-    return pred_p
+    return pred_p, dice_list
 
 def convert_label(in_volume, label_convert_source, label_convert_target):
     mask_volume = np.zeros_like(in_volume)
@@ -261,7 +276,7 @@ class TestAgent:
         saver = tf.train.Saver(restore_vars)
         saver.restore(self.sess, self.config_net['model_file'])
 
-    def test_one_volume(self, img):
+    def test_one_volume(self, img, lab):
         # calculate shape of tensors
         batch_size = self.config_test.get('batch_size', 1)
         data_shape = self.config_net['data_shape']
@@ -269,6 +284,7 @@ class TestAgent:
         class_num  = self.config_net['class_num']
         shape_mode = self.config_test.get('shape_mode', 0)
         test_augment = self.config_test.get('test_augment', 0)
+        evaluation   = self.config_test.get('evaluation', True)
         augment_num  = self.config_test.get('augment_num',  1)
         margin = [data_shape[i] - label_shape[i] for i in range(len(data_shape))]
 
@@ -306,21 +322,23 @@ class TestAgent:
         
         # inference
         if(test_augment == 1):
-            outputp = get_flip_augmented_prediction(pad_img, data_shape, label_shape,
-                                            class_num, batch_size, self.sess, self.x, self.proby)
+            outputp, dice_list = get_flip_augmented_prediction(pad_img, data_shape, label_shape,
+                                            class_num, batch_size, self.sess, self.x, self.proby, lab)
         elif(test_augment == 2):
-            outputp = get_rotation_augmented_prediction(pad_img, data_shape, label_shape,
-                                            class_num, batch_size, self.sess, self.x, self.proby, augment_num)
+            outputp, dice_list = get_rotation_augmented_prediction(pad_img, data_shape, label_shape,
+                                            class_num, batch_size, self.sess, self.x, self.proby, lab, augment_num)
         elif(test_augment == 3):
-            outputp  = get_dropout_augmented_prediction(pad_img, data_shape, label_shape,
-                                            class_num, batch_size, self.sess, self.x, self.proby, augment_num)
+            outputp, dice_list = get_dropout_augmented_prediction(pad_img, data_shape, label_shape,
+                                            class_num, batch_size, self.sess, self.x, self.proby, lab, augment_num)
         else:
             outputp = volume_probability_prediction_3d_roi(pad_img, data_shape, label_shape,
                                                 class_num, batch_size, self.sess, self.x, self.proby)
             outputp = outputp[:, :, :, -1] # get foreground probability
+            lab = np.reshape(lab, outputp.shape)
+            dice_list = [binary_dice3d(lab, outputp> 0.5)]
         if(shape_mode == 1):
             outputp = resize_ND_volume_to_given_shape(outputp, list(img.shape[:-1]), order = 1)
-        return outputp
+        return outputp, dice_list
 
     def test(self):
         random.seed(100)
@@ -332,6 +350,7 @@ class TestAgent:
         crop_z_axis = self.config_test['crop_z_axis']
         detection_only = self.config_test.get('detection_only', False)
         bbox_mode      = self.config_test.get('bbox_mode', 0)
+        file_postfix   = self.config_test.get('file_postfix', 0)
         label_source = self.config_data.get('label_convert_source', None)
         label_target = self.config_data.get('label_convert_target', None)
 
@@ -339,6 +358,7 @@ class TestAgent:
             assert(len(label_source) == len(label_target))
         img_num = data_loader.get_image_number()
         test_time = []
+        dice_all  = []
         print('image number', img_num)
         for i in range(img_num):
             [patient_name, file_names, img_raw, weight_raw, lab_raw, spacing] = data_loader.get_image(i)
@@ -352,8 +372,9 @@ class TestAgent:
                 t0 = time.time()
                 desire_size = [img.shape[0]] + self.config_net['data_shape'][1:]
                 img_resize = resize_ND_volume_to_given_shape(img, desire_size, order = 1)
+                lab_resize = resize_ND_volume_to_given_shape(lab, desire_size, order = 0)
                 print('resized image', img_resize.shape)
-                outp_resize = self.test_one_volume(img_resize)
+                outp_resize, dice_list = self.test_one_volume(img_resize, lab_resize)
                 outp = resize_ND_volume_to_given_shape(outp_resize, \
                         list(img.shape[:-1]), order = 1)
                 out = np.asarray(outp >= 0.5, np.int8)
@@ -364,20 +385,23 @@ class TestAgent:
                 roi_min, roi_max = get_ND_bounding_box(lab, margin = [5,20,20,0])
                 roi_max[3] = img.shape[3] - 1
                 img_roi    = crop_ND_volume_with_bounding_box(img, roi_min, roi_max)
+                lab_roi    = crop_ND_volume_with_bounding_box(lab, roi_min, roi_max)
                 t0 = time.time()
                 desire_size    = [img.shape[0]] + self.config_net['data_shape'][1:]
                 img_roi_resize = resize_ND_volume_to_given_shape(img_roi, desire_size, order = 1)
-                outp_roi_resize = self.test_one_volume(img_roi_resize)
+                lab_roi_resize = resize_ND_volume_to_given_shape(lab_roi, desire_size, order = 0)
+                outp_roi_resize, dice_list = self.test_one_volume(img_roi_resize, lab_roi_resize)
                 outp_roi = resize_ND_volume_to_given_shape(outp_roi_resize, img_roi.shape[:-1], order = 1)
                 outp = np.zeros(img.shape[:-1], np.float32)
                 outp = set_ND_volume_roi_with_bounding_box_range(outp, roi_min[:-1], roi_max[:-1], outp_roi)
                 out = np.asarray(outp >= 0.5, np.int8)
             else:
                 t0  = time.time()
-                outp = self.test_one_volume(img)
+                outp, dice_list = self.test_one_volume(img, lab)
                 out = np.asarray(outp >= 0.5, np.int8)
 
             test_time.append(time.time() - t0)
+            dice_all.append(dice_list)
             if(not(label_source is None) and not(label_source is None)):
                 out = convert_label(out, label_source, label_target)
             if(crop_z_axis):
@@ -396,8 +420,10 @@ class TestAgent:
                 save_name = '{0:}_{1:}.nii.gz'.format(patient_name, 'Prob')
                 save_array_as_nifty_volume(outp, self.config_data['save_root']+'/'+save_name, file_names[0])
         test_time = np.asarray(test_time)
+        dice_all  = np.asarray(dice_all)
         print('test time', test_time.mean(), test_time.std())
-        np.savetxt(self.config_data['save_root'] + '/test_time.txt', test_time)
+        np.savetxt("{0:}/test_time_{1:}.txt".format(self.config_data['save_root'], file_postfix), test_time)
+        np.savetxt("{0:}/dice_{1:}.txt".format(self.config_data['save_root'], file_postfix), dice_all)
 
 if __name__ == '__main__':
     if(len(sys.argv) != 2):
