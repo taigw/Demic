@@ -9,32 +9,27 @@ from scipy import ndimage
 import numpy as np
 import nibabel
 import tensorflow as tf
+from PIL import Image
 
 from Demic.util.parse_config import parse_config
-from Demic.image_io.file_read_write import load_nifty_volume_as_array
+from Demic.image_io.file_read_write import *
+from Demic.util.image_process import *
 
-def search_file_in_folder_list(folder_list, file_name):
-    file_exist = False
-    for folder in folder_list:
-        full_file_name = os.path.join(folder, file_name)
-        if(os.path.isfile(full_file_name)):
-            file_exist = True
-            break
-    if(file_exist == False):
-        raise ValueError('file not exist: {0:}'.format(file_name))
-    return full_file_name
 
 class DataLoader():
     def __init__(self, config):
         self.config = config
         # data information
         self.data_root = config['data_root']
-        self.modality_postfix = config['modality_postfix']
+        self.modality_postfix = config.get('modality_postfix', None)
         self.with_ground_truth  = config.get('with_ground_truth', False)
         self.with_weight = config.get('with_weight', False)
+        self.image_file_postfix  = config['image_file_postfix']
+        self.label_file_postfix  = config.get('label_file_postfix', self.image_file_postfix)
+        self.weight_file_postfix = config.get('weight_file_postfix', self.image_file_postfix)
         self.label_postfix  = config.get('label_postfix', None)
         self.weight_postfix = config.get('weight_postfix', None)
-        self.file_postfix = config['file_post_fix']
+        
         self.data_names = config.get('data_names', None)
         self.data_subset = config.get('data_subset', None)
         self.replace_background_with_random = config.get('replace_background_with_random', False)
@@ -54,7 +49,7 @@ class DataLoader():
                 if(sub_dir == self.data_root[0]):
                     sub_patient_names = []
                     for x in names:
-                        if(self.file_postfix in x):
+                        if(self.image_file_postfix in x):
                             idx = x.rfind('_')
                             xsplit = x[:idx]
                             sub_patient_names.append(xsplit)
@@ -62,7 +57,7 @@ class DataLoader():
                     sub_dir_name = sub_dir[len(self.data_root[0])+1:]
                     sub_patient_names = []
                     for x in names:
-                        if(self.file_postfix in x):
+                        if(self.image_file_postfix in x):
                             idx = x.rfind('_')
                             xsplit = os.path.join(sub_dir_name,x[:idx])
                             sub_patient_names.append(xsplit)                    
@@ -84,33 +79,62 @@ class DataLoader():
         for i in range(len(self.patient_names)):
             print(i, self.patient_names[i])
             if(self.with_weight):
-                weight_name_short = self.patient_names[i] + '_' + self.weight_postfix + '.' + self.file_postfix
+                weight_name_short = self.patient_names[i] + '_' + self.weight_postfix + \
+                                     '.' + self.weight_file_postfix
                 weight_name = search_file_in_folder_list(self.data_root, weight_name_short)
-                weight = load_nifty_volume_as_array(weight_name)
-                w_array = np.asarray([weight], np.float32)
-                w_array = np.transpose(w_array, [1, 2, 3, 0]) # [D, H, W, C]
+                w_array, _ = load_image_as_array(weight_name, with_spacing = False)
                 W.append(w_array)      
             if(self.with_ground_truth):
-                label_name_short = self.patient_names[i] + '_' + self.label_postfix + '.' + self.file_postfix
+                label_name_short = self.patient_names[i] + '_' + self.label_postfix + \
+                                     '.' + self.label_file_postfix
                 label_name = search_file_in_folder_list(self.data_root, label_name_short)
-                label = load_nifty_volume_as_array(label_name)
-                y_array = np.asarray([label])
-                y_array = np.transpose(y_array, [1, 2, 3, 0]) # [D, H, W, C]
+                y_array, _ = load_image_as_array(label_name, with_spacing = False)
                 Y.append(y_array)  
             volume_list = []
             file_list   = []
-            for mod_idx in range(len(self.modality_postfix)):
-                volume_name_short = self.patient_names[i] + '_' + self.modality_postfix[mod_idx] + '.' + self.file_postfix
+            if (self.modality_postfix is None): # single modality
+                volume_name_short = self.patient_names[i] +  '.' + self.image_file_postfix
                 volume_name = search_file_in_folder_list(self.data_root, volume_name_short)
-                volume, space = load_nifty_volume_as_array(volume_name, with_spacing = True)
+                volume_array, space = load_image_as_array(volume_name, with_spacing = True)
                 if(self.with_weight and self.replace_background_with_random):
-                    arr_random = np.random.normal(0, 1, size = volume.shape)
-                    volume[weight==0] = arr_random[weight==0]
-                volume_list.append(volume)
+                        arr_random = np.random.normal(0, 1, size = volume_array.shape)
+                        volume_array[w_array==0] = arr_random[volume_array==0]
                 file_list.append(volume_name)
-
-            volume_array = np.asarray(volume_list)
-            volume_array = np.transpose(volume_array, [1, 2, 3, 0]) # [D, H, W, C]
+            else: # multiple modality
+                for mod_idx in range(len(self.modality_postfix)):
+                    volume_name_short = self.patient_names[i] + '_' + self.modality_postfix[mod_idx] + \
+                                        '.' + self.image_file_postfix
+                    volume_name = search_file_in_folder_list(self.data_root, volume_name_short)
+                    volume, space = load_image_as_array(volume_name, with_spacing = True)
+                    if(self.with_weight and self.replace_background_with_random):
+                        arr_random = np.random.normal(0, 1, size = volume.shape)
+                        volume[w_array==0] = arr_random[w_array==0]
+                    volume_list.append(volume)
+                    file_list.append(volume_name)
+                volume_array = np.concatenate(volume_list, axis = -1)
+            # for intensity normalize
+            intensity_normalize_mode = self.config.get('intensity_normalize_mode', 0)
+            if (intensity_normalize_mode == 0):
+                pass
+            elif(intensity_normalize_mode == 1): # use given mean and std
+                iten_mean = np.asarray(self.config['intensity_normalize_mean'])
+                iten_std  = np.asarray(self.config['intensity_normalize_std'])
+                assert(iten_mean.size == volume_array.shape[-1])
+                assert(iten_std.size == volume_array.shape[-1])
+                volume_array = (volume_array - iten_mean)/iten_std
+            elif(intensity_normalize_mode == 2): # use mean and std based on mask
+                print("intensity normalize mode 2")
+                mask = None 
+                if(self.config.get('use_mask', False)):
+                    use_nonzero_weight_as_mask = self.config.get('use_nonzero_weight_as_mask', False)
+                    mask = w_array > 0 if(use_nonzero_weight_as_mask) else \
+                            volume_array[:, :, :, 0] > self.config['intensity_threshold_for_mask']
+                for c in range(volume_array.shape[-1]):
+                    volume_array[:, :, :, c] = itensity_normalize_one_volume( \
+                                                 volume_array[:, :, :, c] ,  mask, True)
+            else:
+                raise ValueError("Not implemented: intensity_normalize_mode " + \
+                                    "{0:}".format(intensity_normalize_mode))
             X.append(volume_array)
             file_names.append(file_list)
             spacing.append(space)
@@ -151,6 +175,7 @@ class DataLoader():
             img_shape_raw    = img_shape.tostring()
             feature_dict['image_raw'] = _bytes_feature(img_raw)
             feature_dict['image_shape_raw'] = _bytes_feature(img_shape_raw)
+            assert(len(img_shape) == 4)
             if(self.with_weight):
                 weight = np.asarray(self.weight[i], np.float32)
                 weight_raw = weight.tostring()
@@ -158,6 +183,10 @@ class DataLoader():
                 weight_shape_raw = weight_shape.tostring()
                 feature_dict['weight_raw'] = _bytes_feature(weight_raw)
                 feature_dict['weight_shape_raw'] = _bytes_feature(weight_shape_raw)
+                assert(len(weight_shape) == 4)
+                assert(img_shape[0] == weight_shape[0])
+                assert(img_shape[1] == weight_shape[1])
+                assert(img_shape[2] == weight_shape[2])
             if(self.with_ground_truth):
                 label  = np.asarray(self.label[i], np.int32)
                 label_raw  = label.tostring()
@@ -165,6 +194,10 @@ class DataLoader():
                 label_shape_raw  = label_shape.tostring()
                 feature_dict['label_raw'] = _bytes_feature(label_raw)
                 feature_dict['label_shape_raw'] = _bytes_feature(label_shape_raw)
+                assert(len(label_shape) == 4)
+                assert(img_shape[0] == label_shape[0])
+                assert(img_shape[1] == label_shape[1])
+                assert(img_shape[2] == label_shape[2])
             example = tf.train.Example(features=tf.train.Features(feature = feature_dict))
             writer.write(example.SerializeToString())
         writer.close()

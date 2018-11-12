@@ -7,10 +7,10 @@ import random
 import numpy as np
 import tensorflow as tf
 from datetime import datetime
-from tensorflow.contrib.data import Iterator
+from tensorflow.data import Iterator
 from tensorflow.contrib.layers.python.layers import regularizers
 from niftynet.layer.loss_segmentation import LossFunction as SegmentationLoss
-from niftynet.layer.loss_regression import LossFunction as RegressionLoss
+# from niftynet.layer.loss_regression import LossFunction as RegressionLoss
 from Demic.util.parse_config import parse_config
 from Demic.image_io.data_generator import ImageDataGenerator
 from Demic.net.net_factory import NetFactory

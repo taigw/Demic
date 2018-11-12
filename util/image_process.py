@@ -42,7 +42,7 @@ def get_largest_component(img): # 2D or 3D
     labeled_array, numpatches = ndimage.label(img,s) # labeling
     sizes = ndimage.sum(img,labeled_array,range(1,numpatches+1))
     max_label = np.where(sizes == sizes.max())[0] + 1
-    return labeled_array == max_label
+    return np.asarray(labeled_array == max_label, np.uint8)
 
 def get_detection_binary_bounding_box(img, margin, spacing = [1,1,1], mode = 0):
     """
@@ -350,3 +350,18 @@ def set_roi_to_nd_volume(volume, roi_center, sub_volume):
     else:
         raise ValueError("array dimension should be 3 or 4")
     return output_volume
+
+def convert_label(label, source_list, target_list):
+    """
+    convert a label map based a source list and a target list of labels
+    label: nd array 
+    source_list: a list of labels that will be converted, e.g. [0, 1, 2, 4]
+    target_list: a list of target labels, e.g. [0, 1, 2, 3]
+    """
+    assert(len(source_list) == len(target_list))
+    label_converted = np.zeros_like(label)
+    for i in range(len(source_list)):
+        label_temp = np.asarray(label == source_list[i], np.int32)
+        label_temp = label_temp * target_list[i]
+        label_converted = label_converted + label_temp
+    return label_converted

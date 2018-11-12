@@ -6,7 +6,7 @@
 import os
 import tensorflow as tf
 import numpy as np
-from tensorflow.contrib.data import TFRecordDataset
+from tensorflow.data import TFRecordDataset
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework.ops import convert_to_tensor
 
@@ -66,8 +66,7 @@ class ImageDataGenerator(object):
         self.label_convert_target = self.config.get('label_convert_target', None)
         
         data = TFRecordDataset(data_files,"ZLIB")
-        data = data.map(self._parse_function, num_threads=5,
-                        output_buffer_size=20*batch_size)
+        data = data.map(self._parse_function, num_parallel_calls=5)
         if(self.config.get('data_shuffle', False)):
             data = data.shuffle(buffer_size = 20*batch_size)
         data = data.batch(batch_size)
@@ -211,12 +210,13 @@ class ImageDataGenerator(object):
         lab_begin = img_begin + label_margin
         lab_begin = tf.multiply(lab_begin, tf.constant([1, 1, 1, 0]))
         
+        # print(img, img_begin, data_shape_out)
         img_slice    = tf.slice(img, img_begin, data_shape_out)
-        weight_slice = tf.slice(weight, img_begin, weight_shape_out)
+        weight_slice = tf.slice(weight, lab_begin, weight_shape_out)
         label_slice  = tf.slice(label, lab_begin, label_shape_out)
-
-        return [img_slice, weight_slice, label_slice]
     
+        return [img_slice, weight_slice, label_slice]
+
     def __get_training_patch(self, image, weight, label, patch_mode):
         ## preprocess
         # augmentation by random rotation

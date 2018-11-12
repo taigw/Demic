@@ -4,9 +4,10 @@ import sys
 sys.path.append('./')
 import numpy as np
 import nibabel
+from PIL import Image
 from datetime import datetime
 import tensorflow as tf
-from tensorflow.contrib.data import Iterator
+from tensorflow.data import Iterator
 import matplotlib.pyplot as plt
 from Demic.util.parse_config import parse_config
 from Demic.image_io.data_generator import ImageDataGenerator
@@ -20,14 +21,14 @@ def save_array_as_nifty_volume(data, filename):
 
 def test_generator(config_file):
     config = parse_config(config_file)
-    config_data = config['tfrecords']
-    batch_size  = config_data['batch_size']
+    config_data = config['dataset']
     temp_dir    = config_data['temp_dir']
-
+    batch_size  = config['sampler']['batch_size']
+    
     # Place data loading and preprocessing on the cpu
     tf.set_random_seed(0)
     with tf.device('/cpu:0'):
-        tr_data = ImageDataGenerator(config_data)
+        tr_data = ImageDataGenerator(config_data['data_train'], config['sampler'])
 
     # create an reinitializable iterator given the dataset structure
     iterator = Iterator.from_structure(tr_data.data.output_types,
@@ -54,18 +55,31 @@ def test_generator(config_file):
             for step in range(train_batches_per_epoch):
                 if(app_type==0):
                     [img_batch, weight_batch, label_batch] = sess.run(next_batch)
-                    img_0 = img_batch[0,:,:,:, 0]
+                    img_0 = img_batch[0,:,:,:,:]
                     lab_0 = label_batch[0,:,:,:,0]
                     print(epoch, step, img_0.shape, lab_0.shape)
-                    img_d = img_0.shape[0]
-                    lab_d = lab_0.shape[0]
-                    if(lab_d < img_d):
-                        margin = (img_d - lab_d)/2
-                        pad_lab = np.zeros_like(img_0)
-                        pad_lab[np.ix_(range(margin, margin + lab_d), range(lab_0.shape[1]), range(lab_0.shape[2]))] = lab_0
-                        lab_0 = pad_lab
-                    save_array_as_nifty_volume(img_0, '{0:}/img{1:}.nii'.format(temp_dir, total_step))
-                    save_array_as_nifty_volume(lab_0, '{0:}/lab{1:}.nii'.format(temp_dir, total_step))
+                    if(config['training']['save_postfix'] == 'nii.gz'):
+                        img_0 = img_0[ :,:,:,0]
+                        img_d = img_0.shape[0]
+                        lab_d = lab_0.shape[0]
+                        if(lab_d < img_d):
+                            margin = (img_d - lab_d)/2
+                            pad_lab = np.zeros_like(img_0)
+                            pad_lab[np.ix_(range(margin, margin + lab_d), range(lab_0.shape[1]), range(lab_0.shape[2]))] = lab_0
+                            lab_0 = pad_lab
+                        save_array_as_nifty_volume(img_0, '{0:}/img{1:}.nii.gz'.format(temp_dir, total_step))
+                        save_array_as_nifty_volume(lab_0, '{0:}/lab{1:}.nii.gz'.format(temp_dir, total_step))
+                    elif(config['training']['save_postfix'] == 'jpg'):
+                        iten_mean = np.asarray([179.69427237, 146.44891944, 134.39686832])
+                        iten_std  = np.asarray([40.37515566, 42.92464467, 46.74197245])
+                        img_0 = img_0[0] * iten_std + iten_mean
+                        img_0 = np.asarray(img_0, np.uint8)
+                        lab_0 = np.asarray(lab_0[0], np.uint8) * 255
+                        print(img_0.min(), img_0.max(), lab_0.min(), lab_0.max())
+                        img_0 = Image.fromarray(img_0, 'RGB')
+                        lab_0 = Image.fromarray(lab_0, 'L')
+                        img_0.save('{0:}/img{1:}.jpg'.format(temp_dir, total_step))
+                        lab_0.save('{0:}/lab{1:}.jpg'.format(temp_dir, total_step))
                 else:
                     [img_batch, stp] = sess.run(next_batch)
                     print(stp)
@@ -101,11 +115,11 @@ def test_tensor_pad():
         print(y_v.shape)
         print(y_v)
 if __name__ == "__main__":
-#    if(len(sys.argv) != 2):
-#        print('Number of arguments should be 2. e.g.')
-#        print('    python test_generator.py config.txt')
-#        exit()
-#    config_file = str(sys.argv[1])
-#    assert(os.path.isfile(config_file))
-#    test_generator(config_file)
-    test_tensor_pad()
+    if(len(sys.argv) != 2):
+        print('Number of arguments should be 2. e.g.')
+        print('    python test_generator.py config.txt')
+        exit()
+    config_file = str(sys.argv[1])
+    assert(os.path.isfile(config_file))
+    test_generator(config_file)
+    # test_tensor_pad()

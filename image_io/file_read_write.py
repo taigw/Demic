@@ -1,5 +1,6 @@
 import os
 import nibabel
+from PIL import Image
 import numpy as np
 import SimpleITK as sitk
 
@@ -21,6 +22,7 @@ def search_file_in_folder_list(folder_list, file_name):
         raise ValueError('file not exist: {0:}'.format(file_name))
     return full_file_name
 
+
 def load_nifty_volume_as_array(filename, with_spacing=False):
     """Read a nifty image and return data array
     input shape [W, H, D]
@@ -37,16 +39,24 @@ def load_nifty_volume_as_array(filename, with_spacing=False):
         spacing = img.header.get_zooms()
         spacing = [spacing[2], spacing[1], spacing[0]]
         return data, spacing
-    return data
+    return data, None
 
-def save_array_as_nifty_volume_backup(data, filename):
-    """Write a numpy array as nifty image
-        numpy data shape [D, H, W]
-        nifty image shape [W, H, D]
-        """
-    data = np.transpose(data, [2, 1, 0])
-    img = nibabel.Nifti1Image(data, np.eye(4))
-    nibabel.save(img, filename)
+def load_image_as_array(image_name, with_spacing = True):
+    if (image_name.endswith(".nii.gz") or image_name.endswith(".mha")):
+        image, spacing = load_nifty_volume_as_array(image_name, with_spacing)
+        image = np.asarray([image], np.float32)
+        image = np.transpose(image, [1, 2, 3, 0]) # [D, H, W, C]
+        return image, spacing
+    elif(image_name.endswith(".jpg") or image_name.endswith(".png")):
+        image = np.asarray(Image.open(image_name), np.float32)
+        if(len(image.shape) == 3):
+            image = np.expand_dims(image, axis = 0) # [D, H, W, C]
+        else:
+            image = np.expand_dims(image, axis = 0)
+            image = np.expand_dims(image, axis = -1)
+        return image, (1.0, 1.0, 1.0)
+    else:
+        raise ValueError("unsupported image format")
 
 def save_array_as_nifty_volume(data, filename, reference_name = None):
     """
