@@ -91,9 +91,9 @@ def dice_evaluation(config_file):
     dice_all_data = np.asarray(dice_all_data)
     dice_mean = [dice_all_data.mean(axis = 0)]
     dice_std  = [dice_all_data.std(axis = 0)]
-    np.savetxt("{0:}/{1:}_all.txt".format(s_folder, file_postfix), dice_all_data)
-    np.savetxt("{0:}/{1:}_mean.txt".format(s_folder, file_postfix), dice_mean)
-    np.savetxt("{0:}/{1:}_std.txt".format(s_folder, file_postfix), dice_std)
+    np.savetxt("{0:}/{1:}_all_temp.txt".format(s_folder, file_postfix), dice_all_data)
+    np.savetxt("{0:}/{1:}_mean_temp.txt".format(s_folder, file_postfix), dice_mean)
+    np.savetxt("{0:}/{1:}_std_temp.txt".format(s_folder, file_postfix), dice_std)
     print('dice mean ', dice_mean)
     print('dice std  ', dice_std)
     

@@ -4,6 +4,7 @@ from __future__ import absolute_import, print_function
 import os
 import sys
 from Demic.net.unet2d import UNet2D
+from Demic.net.dense_unet2d import DenseUNet2D
 from Demic.net.unet2d5 import UNet2D5
 from Demic.net.fcn2d import FCN2D
 from Demic.net.pnet import PNet
@@ -14,6 +15,8 @@ class NetFactory(object):
     def create(name):
         if name == 'UNet2D':
             return UNet2D
+        if name == 'DenseUNet2D':
+            return DenseUNet2D
         if name == 'UNet2D5':
             return UNet2D5
         if name == 'FCN2D':
