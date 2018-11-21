@@ -119,7 +119,7 @@ class TestAgent:
         print('image number', img_num)
         for i in range(img_num):
             [patient_name, file_names, img_raw, weight_raw, lab_raw, spacing] = data_loader.get_image(i)
-            print(patient_name, lab_raw.shape)
+            print(patient_name, img_raw.shape)
             # iten_mean = [179.69427237, 146.44891944, 134.39686832]
             # iten_std  = [40.37515566, 42.92464467, 46.74197245]
             # img = img_raw[0] * np.asarray(iten_std) + iten_mean

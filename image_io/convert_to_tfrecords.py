@@ -208,6 +208,7 @@ def convert_to_rf_records(config_file):
     data_loader = DataLoader(config_data)
     data_loader.load_data()
     data_loader.save_to_tfrecords()
+
 if __name__ == "__main__":
     if(len(sys.argv) != 2):
         print('Number of arguments should be 2. e.g.')
