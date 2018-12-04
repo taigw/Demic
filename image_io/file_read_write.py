@@ -34,6 +34,9 @@ def load_nifty_volume_as_array(filename, with_spacing=False):
     if(len(shape) == 4):
         assert(shape[3] == 1)
         data = np.reshape(data, shape[:-1])
+    elif(len(shape) == 5):
+        assert(shape[3] == 1 and shape[4] == 1)
+        data = np.reshape(data, shape[:-2])
     data = np.transpose(data, [2,1,0])
     if(with_spacing):
         spacing = img.header.get_zooms()
