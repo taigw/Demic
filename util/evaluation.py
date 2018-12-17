@@ -33,26 +33,26 @@ def binary_dice(s, g, resize = False):
     dice = 2.0*s0/(s1 + s2 + 0.00001)
     return dice
 
-def dice_of_binary_volumes(s_name, g_name):
-    s = load_nifty_volume_as_array(s_name)
-    g = load_nifty_volume_as_array(g_name)
-    dice = binary_dice3d(s, g)
+def dice_of_images(s_name, g_name):
+    s = load_image_as_4d_array(s_name)['data_array']
+    g = load_image_as_4d_array(g_name)['data_array']
+    dice = binary_dice(s, g)
     return dice
 
 # IOU evaluation
-def binary_iou3d(s,g):
+def binary_iou(s,g):
     assert(len(s.shape)== len(g.shape))
     intersecion = np.multiply(s, g)
     union = np.asarray(s + g >0, np.float32)
     iou = intersecion.sum()/(union.sum() + 1e-10)
     return iou
 
-def iou_of_binary_volumes(s_name, g_name):
-    s = load_nifty_volume_as_array(s_name)
-    g = load_nifty_volume_as_array(g_name)
+def iou_of_images(s_name, g_name):
+    s = load_image_as_4d_array(s_name)['data_array']
+    g = load_image_as_4d_array(g_name)['data_array']
     margin = (3, 8, 8)
     g = get_detection_binary_bounding_box(g, margin)
-    return binary_iou3d(s, g)
+    return binary_iou(s, g)
 
 # Hausdorff evaluation
 def slice_to_contour(img):
@@ -176,7 +176,7 @@ def get_evaluation_score(s_volume, g_volume, spacing, metric):
     if(metric.lower() == "dice"):
         score = binary_dice(s_volume, g_volume)
     elif(metric.lower() == "iou"):
-        score = binary_iou3d(s_volume,g_volume)
+        score = binary_iou(s_volume,g_volume)
     elif(metric.lower() == "hausdorff2d"):
         score = binary_hausdorff2d(s_volume, g_volume, spacing)
     elif(metric.lower() == "hausdorff3d"):
@@ -216,8 +216,10 @@ def evaluation(config_file):
     for i in range(len(patient_names)):
         s_name = os.path.join(s_folder, patient_names[i] + s_postfix_long)
         g_name = os.path.join(g_folder, patient_names[i] + g_postfix_long)
-        s_volume, s_spacing = load_image_as_array(s_name, with_spacing = True)
-        g_volume, g_spacing = load_image_as_array(g_name, with_spacing = True)
+        s_dict = load_image_as_4d_array(s_name)
+        g_dict = load_image_as_4d_array(g_name)
+        s_volume = s_dict["data_array"]; s_spacing = s_dict["spacing"]
+        g_volume = g_dict["data_array"]; g_spacing = g_dict["spacing"]
         if((label_convert_source is not None) and label_convert_target is not None):
             s_volume = convert_label(s_volume, label_convert_source, label_convert_target)
 
@@ -227,8 +229,7 @@ def evaluation(config_file):
         for lab in labels:
             s_volume_sub = s_volume_sub + np.asarray(s_volume == lab, np.uint8)
             g_volume_sub = g_volume_sub + np.asarray(g_volume == lab, np.uint8)
-#        if(s_volume_sub.sum() > 0):
-#            s_volume_sub = get_largest_component(s_volume_sub)
+
         if(remove_outlier):
             strt = ndimage.generate_binary_structure(3,2) # iterate structure
             post = ndimage.morphology.binary_closing(s_volume_sub, strt)
@@ -253,6 +254,7 @@ if __name__ == '__main__':
         print('Number of arguments should be 2. e.g.')
         print('    python util/evaluation.py config.cfg')
         exit()
+    print("evaluation")
     config_file = str(sys.argv[1])
     assert(os.path.isfile(config_file))
     evaluation(config_file)

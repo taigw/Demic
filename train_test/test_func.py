@@ -143,7 +143,7 @@ def get_rotation_augmented_prediction(img, data_shape, label_shape, class_num, b
 #        pred = volume_probability_prediction_3d_roi(img, data_shape, label_shape,
 #                                                   class_num, batch_size, sess, x, proby)
         angle = random.random()*360
-        img_rotate = ndimage.interpolation.rotate(img,angle, axes = (1, 2), reshape = False)
+        img_rotate  = ndimage.interpolation.rotate(img,angle, axes = (1, 2), reshape = False)
         pred_rotate = volume_probability_prediction_3d_roi(img_rotate, data_shape, label_shape,
                                                    class_num, batch_size, sess, x, proby)
         pred = ndimage.interpolation.rotate(pred_rotate, - angle, axes = (1, 2),reshape = False)

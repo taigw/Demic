@@ -75,27 +75,31 @@ class DataLoader():
         X = []
         W = []
         Y = []
-        spacing = []
+        image_info = []
         for i in range(len(self.patient_names)):
             print(i, self.patient_names[i])
             if(self.with_weight):
                 weight_name_short = self.patient_names[i] + '_' + self.weight_postfix + \
                                      '.' + self.weight_file_postfix
                 weight_name = search_file_in_folder_list(self.data_root, weight_name_short)
-                w_array, _ = load_image_as_array(weight_name, with_spacing = False)
+                w_array = load_image_as_4d_array(weight_name)['data_array']
+                w_array = np.asarray(w_array, np.float32)
                 W.append(w_array)      
             if(self.with_ground_truth):
                 label_name_short = self.patient_names[i] + '_' + self.label_postfix + \
                                      '.' + self.label_file_postfix
                 label_name = search_file_in_folder_list(self.data_root, label_name_short)
-                y_array, _ = load_image_as_array(label_name, with_spacing = False)
+                y_array  = load_image_as_4d_array(label_name)['data_array']
                 Y.append(y_array)  
             volume_list = []
             file_list   = []
             if (self.modality_postfix is None): # single modality
                 volume_name_short = self.patient_names[i] +  '.' + self.image_file_postfix
                 volume_name = search_file_in_folder_list(self.data_root, volume_name_short)
-                volume_array, space = load_image_as_array(volume_name, with_spacing = True)
+                volume_dict  = load_image_as_4d_array(volume_name)
+                volume_array = np.asarray(volume_dict['data_array'],  np.float32)
+                temp_img_info = {'spacing': volume_dict['spacing'],
+                                 'direction':volume_dict['direction']}
                 if(self.with_weight and self.replace_background_with_random):
                         arr_random = np.random.normal(0, 1, size = volume_array.shape)
                         volume_array[w_array==0] = arr_random[volume_array==0]
@@ -105,11 +109,15 @@ class DataLoader():
                     volume_name_short = self.patient_names[i] + '_' + self.modality_postfix[mod_idx] + \
                                         '.' + self.image_file_postfix
                     volume_name = search_file_in_folder_list(self.data_root, volume_name_short)
-                    volume, space = load_image_as_array(volume_name, with_spacing = True)
+                    volume_dict = load_image_as_4d_array(volume_name)
+                    volume_array_i = np.asarray(volume_dict['data_array'], np.float32)
+                    if(mod_idx == 0):
+                        temp_img_info = {'spacing': volume_dict['spacing'],
+                                 'direction':volume_dict['direction']}
                     if(self.with_weight and self.replace_background_with_random):
-                        arr_random = np.random.normal(0, 1, size = volume.shape)
-                        volume[w_array==0] = arr_random[w_array==0]
-                    volume_list.append(volume)
+                        arr_random = np.random.normal(0, 1, size = volume_array_i.shape)
+                        volume_array_i[w_array==0] = arr_random[w_array==0]
+                    volume_list.append(volume_array_i)
                     file_list.append(volume_name)
                 volume_array = np.concatenate(volume_list, axis = -1)
             # for intensity normalize
@@ -127,8 +135,10 @@ class DataLoader():
                 mask = None 
                 if(self.config.get('use_mask', False)):
                     use_nonzero_weight_as_mask = self.config.get('use_nonzero_weight_as_mask', False)
-                    mask = w_array > 0 if(use_nonzero_weight_as_mask) else \
-                            volume_array[:, :, :, 0] > self.config['intensity_threshold_for_mask']
+                    if(use_nonzero_weight_as_mask):
+                        mask = w_array > 0
+                    else:
+                        mask = volume_array[:, :, :, 0] > self.config['intensity_threshold_for_mask']
                 for c in range(volume_array.shape[-1]):
                     volume_array[:, :, :, c] = itensity_normalize_one_volume( \
                                                  volume_array[:, :, :, c] ,  mask, True)
@@ -137,13 +147,13 @@ class DataLoader():
                                     "{0:}".format(intensity_normalize_mode))
             X.append(volume_array)
             file_names.append(file_list)
-            spacing.append(space)
+            image_info.append(temp_img_info)
         print('{0:} volumes have been loaded'.format(len(self.patient_names)))
         self.data   = X
         self.weight = W
         self.label  = Y
         self.file_names = file_names
-        self.spacing = spacing
+        self.image_info = image_info
     
     def get_image_number(self):
         return len(self.patient_names)
@@ -158,7 +168,7 @@ class DataLoader():
         else:
             weight = None
         output = [self.patient_names[idx], self.file_names[idx],
-                  self.data[idx], weight, label, self.spacing[idx]]
+                  self.data[idx], weight, label, self.image_info[idx]]
         return output
 
     def save_to_tfrecords(self):
@@ -208,7 +218,6 @@ def convert_to_rf_records(config_file):
     data_loader = DataLoader(config_data)
     data_loader.load_data()
     data_loader.save_to_tfrecords()
-
 if __name__ == "__main__":
     if(len(sys.argv) != 2):
         print('Number of arguments should be 2. e.g.')
@@ -217,3 +226,4 @@ if __name__ == "__main__":
     config_file = str(sys.argv[1])
     assert(os.path.isfile(config_file))
     convert_to_rf_records(config_file)
+
