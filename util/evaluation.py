@@ -250,7 +250,7 @@ def evaluation(config_file):
     print("{0:} std  ".format(metric), score_std) 
     
 if __name__ == '__main__':
-    if(len(sys.argv) != 2):
+    if(len(sys.argv) < 2):
         print('Number of arguments should be 2. e.g.')
         print('    python util/evaluation.py config.cfg')
         exit()

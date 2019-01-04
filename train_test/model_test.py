@@ -47,7 +47,7 @@ class TestAgent:
         
         self.x = tf.placeholder(tf.float32, shape = full_data_shape)
         print('network input', self.x)
-        predicty = self.net(self.x, is_training = bn_training_mode, bn_momentum = 0.0)
+        predicty = self.net(self.x, is_training = bn_training_mode)
         print('network output shape ', predicty)
         self.proby = tf.nn.softmax(predicty)
 
@@ -154,7 +154,7 @@ class TestAgent:
         np.savetxt("{0:}/test_time.txt".format(self.config_data['save_root']), test_time)
 
 if __name__ == '__main__':
-    if(len(sys.argv) != 2):
+    if(len(sys.argv) < 2):
         print('Number of arguments should be 2. e.g.')
         print('    python train_test/model_test.py config.txt')
         exit()

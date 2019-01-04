@@ -223,3 +223,21 @@ class DenseUNetBlock(TrainableLayer):
         f3 =  conv_op3(f2cat, is_training, bn_momentum)
     
         return f3
+
+class TensorSliceLayer(TrainableLayer):
+    """
+    extract the central part of a tensor
+    """
+
+    def __init__(self, margin = 1, regularizer=None, name='tensor_extract'):
+        self.layer_name = name
+        super(TensorSliceLayer, self).__init__(name=self.layer_name)
+        self.margin = margin
+        
+    def layer_op(self, input_tensor):
+        input_n      = input_tensor.get_shape().as_list()[1]
+        idx_range    = tf.constant(np.asarray(range(self.margin, input_n - self.margin)))
+        input_trans  = tf.transpose(input_tensor, [1, 0, 2, 3, 4])
+        output_trans = tf.gather(input_trans, idx_range)
+        output = tf.transpose(output_trans, [1, 0, 2, 3, 4])
+        return output
