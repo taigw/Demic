@@ -30,8 +30,8 @@ def rename(checkpoint_from, checkpoint_to, replace_from, replace_to):
         saver.save(sess, checkpoint_to)
 
 if __name__ == '__main__':
-    checkpoint_from = "model/pnet-s10-ml/pnet_5000.ckpt"
-    checkpoint_to   = "model/pnet-s10-ml/pnet_seg_5000.ckpt"
+    checkpoint_from = "model/segment/pnet_20000.ckpt"
+    checkpoint_to   = "model/segment/pnet_seg_20000.ckpt"
     replace_from   = "pnet"
     replace_to     = "pnet_seg"
     rename(checkpoint_from, checkpoint_to, replace_from, replace_to)

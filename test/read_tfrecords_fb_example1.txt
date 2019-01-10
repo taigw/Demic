@@ -1,17 +1,22 @@
-[tfrecords]
+[dataset]
 # filename of tfrecords
 # (required, string)
-tfrecords_filename = ../data/bf_img.tfrecords
+data_train = [/home/guotai/data/FetalBrain/tf_records/hp_train.tfrecords]
 
+# dir to save temporary output
+# (required, string)
+temp_dir = ../temp
+
+[sampler]
 # batch size to loaddefault is 5
 # (optional, int)
 batch_size  = 5
 
 # patch shape for image, weight and label, respectively
 # (required, list of integers)
-data_shape  = [20, 384, 384, 1]
-weight_shape= [20, 384, 384, 1]
-label_shape = [20, 384, 384, 1]
+data_shape  = [20, 96, 96, 1]
+weight_shape= [20, 96, 96, 1]
+label_shape = [20, 96, 96, 1]
 
 # data shuffle at each epoch, default is False
 # (optional, boolean)
@@ -39,23 +44,22 @@ label_convert_target = [0, 0, 1, 0, 0]
 # 0: for segmentation, randomly sample patch with fixed size,
 # 1: for segmentation, crop with bounding box and resize within plane,
 #    and randomly sample along z axis
-# 2: for regression, resize image to fixed size,
-#    resize 2d images to given size, and get spatial transformer parameters
+# 2: resize image to fixed size,
 # (required, integer)
-patch_mode = 0
+patch_mode = 2
 
 # bounding box margin for along z,y,x axis. (when patch_mode = 1 or 2)
 # (optional, list of integers)
 bounding_box_margin = [5,8,8]
 
-# dir to save temporary output
-# (required, string)
-temp_dir = ../temp
 
 [training]
 # application type, 0 segmentation, 1 regression
 # (required, integer)
 app_type = 0
+
+# postfix (file format) for saving images
+save_postfix = nii.gz
 
 # maximal epoch
 # (required, integer)

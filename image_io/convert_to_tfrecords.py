@@ -27,6 +27,8 @@ class DataLoader():
         self.image_file_postfix  = config['image_file_postfix']
         self.label_file_postfix  = config.get('label_file_postfix', self.image_file_postfix)
         self.weight_file_postfix = config.get('weight_file_postfix', self.image_file_postfix)
+        self.label_convert_source = config.get('label_convert_source', None)
+        self.label_convert_target = config.get('label_convert_target', None)
         self.label_postfix  = config.get('label_postfix', None)
         self.weight_postfix = config.get('weight_postfix', None)
         
@@ -90,6 +92,9 @@ class DataLoader():
                                      '.' + self.label_file_postfix
                 label_name = search_file_in_folder_list(self.data_root, label_name_short)
                 y_array  = load_image_as_4d_array(label_name)['data_array']
+                if(self.label_convert_source and self.label_convert_target):
+                    y_array = convert_label(y_array, self.label_convert_source, self.label_convert_target)
+                    print('after label convert', y_array.max())
                 Y.append(y_array)  
             volume_list = []
             file_list   = []

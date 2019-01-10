@@ -171,13 +171,18 @@ def ransac_elipsoid_fitting(points, iter = 3):
 ## for ND images
 def itensity_normalize_one_volume(volume, mask = None, replace = False):
     """
-        normalize a volume image with mean dand std of the mask region
+        normalize a volume image with mean and std of the mask region
         """
     if(mask is None):
         mask = volume > 0
     pixels = volume[mask>0]
     mean = pixels.mean()
     std  = pixels.std()
+    if(std/mean > 0.8): 
+        idx = (mask > 0) * (volume < 3*mean)
+        pixels = volume[idx>0]
+        mean = pixels.mean()
+        std = pixels.std()
     out = (volume - mean)/std
     if(replace):
         out_random = np.random.normal(0, 1, size = volume.shape)
