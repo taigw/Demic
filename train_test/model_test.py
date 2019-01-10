@@ -136,19 +136,28 @@ class TestAgent:
             save_name = "{0:}_{1:}.{2:}".format(patient_name, 
                                                  self.config_data['output_postfix'],
                                                  self.config_data['outputfile_postfix'])
-            if (self.config_data['outputfile_postfix'] == "nii.gz" or self.config_data['outputfile_postfix'] == "nii"):
-                save_array_as_nifty_volume(out, self.config_data['save_root']+'/'+save_name, file_names[0])
-            elif(self.config_data['outputfile_postfix'] == "jpg" or self.config_data['outputfile_postfix'] == "png"):
+            save_prob_name = "{0:}_{1:}.{2:}".format(patient_name, 
+                                                 'prob',
+                                                 self.config_data['outputfile_postfix'])
+            save_prob = self.config_test.get('save_probability', False)
+            if (self.config_data['outputfile_postfix'] in ["nii.gz", "nii"]):
+                save_array_as_nifty_volume(out, \
+                    self.config_data['save_root']+'/'+save_name, file_names[0])
+                if(save_prob):
+                    save_array_as_nifty_volume(outp, \
+                        self.config_data['save_root']+'/'+save_prob_name, file_names[0])
+            elif(self.config_data['outputfile_postfix'] in ["jpg","png"]):
                 assert(out.shape[0] == 1 and len(out.shape) == 3)
                 out = np.reshape(out, out.shape[1:])
                 if(self.config_net['class_num'] == 2):
                     out = out * 255
                 out_img = Image.fromarray(out, 'L')
                 out_img.save(self.config_data['save_root'] + '/' + save_name)
+                if(save_prob):
+                    outp = np.reshape(outp, outp.shape[1:])
+                    outp_img = Image.fromarray(np.asarray(outp*255, np.uint8), 'L')
+                    outp_img.save(self.config_data['save_root'] + '/' + save_prob_name)
                 print("save array with shape", out.shape)
-            if(self.config_test.get('save_probability', False)):
-                save_name = '{0:}_{1:}.nii.gz'.format(patient_name, 'Prob')
-                save_array_as_nifty_volume(outp, self.config_data['save_root']+'/'+save_name, file_names[0])
         test_time = np.asarray(test_time)
         print('test time', test_time.mean(), test_time.std())
         np.savetxt("{0:}/test_time.txt".format(self.config_data['save_root']), test_time)
