@@ -30,11 +30,11 @@ class PNet(TrainableLayer):
         if(parameters is None):
             self.n_features = [64, 64, 64, 64, 64]
             self.dilations  = [1, 2, 3, 4, 5]
-            self.dropout = 0.8
+            self.dropout = 0.5
         else:
             self.n_features = parameters.get('num_features', [64, 64, 64, 64, 64])
             self.dilations  = parameters.get('dilations', [1, 2, 3, 4, 5])
-            self.dropout    = parameters.get('dropout', 0.8)
+            self.dropout    = parameters.get('dropout', 0.5)
         self.acti_func = acti_func
         self.num_classes = num_classes
         

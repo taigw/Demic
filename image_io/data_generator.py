@@ -61,10 +61,7 @@ class ImageDataGenerator(object):
         """
         self.config = sampler_config
         self.__check_image_patch_shape()
-        batch_size = self.config['batch_size']
-        self.label_convert_source = self.config.get('label_convert_source', None)
-        self.label_convert_target = self.config.get('label_convert_target', None)
-        
+        batch_size = self.config['batch_size']       
         data = TFRecordDataset(data_files,"ZLIB")
         data = data.map(self._parse_function, num_parallel_calls=5)
         if(self.config.get('data_shuffle', False)):
@@ -148,22 +145,30 @@ class ImageDataGenerator(object):
         outpt_tensor = tf.pad(inpt_tensor, pad_lr, mode = "REFLECT")
         return outpt_tensor
     
-    def __get_4d_bounding_box(self, label, margin):
+    def __get_4d_bounding_box(self, label, margin, random_offset = True):
         """ Get the 4D bounding boxe generated from nonzero region of the label
             if the nonzero region is null, return the tesor size
             """
         # find bounding box first
         max_idx = tf.subtract(tf.shape(label), tf.constant([1,1,1,1], tf.int32))
-        margin = tf.constant(margin)
+        if(random_offset):
+            margin = tf.cast(tf.constant(margin), tf.float32)
+            margin_min = margin * tf.random_uniform(tf.shape(margin), 0.5, 1.5)
+            margin_min = tf.cast(margin_min, tf.int32)
+            margin_max = margin * tf.random_uniform(tf.shape(margin), 0.5, 1.5)
+            margin_max = tf.cast(margin_max, tf.int32)
+        else:
+            margin_min = tf.constant(margin)
+            margin_max = tf.constant(margin)
         mask = tf.not_equal(label, tf.constant(0, dtype=tf.int32))
         indices = tf.cast(tf.where(mask), tf.int32)
         indices_min = tf.reduce_min(indices, reduction_indices=[0]) # infinity if indices is null
-        indices_min = tf.subtract(indices_min, margin)
+        indices_min = tf.subtract(indices_min, margin_min)
         indices_min = tf.maximum(indices_min, tf.constant([0,0,0,0], tf.int32))
         indices_min = tf.minimum(indices_min, max_idx)
         
         indices_max = tf.reduce_max(indices, reduction_indices=[0]) # minus infinity if indces is null
-        indices_max = tf.add(indices_max, margin)
+        indices_max = tf.add(indices_max, margin_max)
         indices_max = tf.minimum(indices_max, tf.subtract(tf.shape(label), tf.constant([1,1,1,1], tf.int32)))
         indices_max = tf.maximum(indices_max, tf.constant([0,0,0,0]))
         
@@ -236,19 +241,6 @@ class ImageDataGenerator(object):
         if(self.config.get('flip_up_down', False)):
             [image, weight, label] = random_flip_tensors_in_one_dim([image, weight, label], 1)
 
-        # convert label
-        if(self.label_convert_source and self.label_convert_target):
-            assert(len(self.label_convert_source) == len(self.label_convert_target))
-            label_converted = tf.zeros_like(label)
-            for i in range(len(self.label_convert_source)):
-                l0 = self.label_convert_source[i]
-                l1 = self.label_convert_target[i]
-                label_temp = tf.equal(label, tf.multiply(l0, tf.ones_like(label)))
-                label_temp = tf.multiply(l1, tf.cast(label_temp,tf.int32))
-                label_converted = tf.add(label_converted, label_temp)
-            label = label_converted
-
-
         if(patch_mode == 0):
             # randomly sample patch with fixed size
             [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
@@ -270,81 +262,11 @@ class ImageDataGenerator(object):
                      img_slice, weight_slice, label_slice)
             return img_slice, weight_slice, label_slice
         elif(patch_mode == 2):
-            # resize 2d images to given size, and get spatial transformer parameters
+            # resize 2d images to given size
             new_2d_size = tf.constant(self.config['data_shape'][1:3])
             img_slice   = tf.image.resize_images(image, new_2d_size, method = 0) # bilinear
             weight_slice= tf.image.resize_images(weight,new_2d_size, method = 0) # bilinear
             label_slice = tf.image.resize_images(label, new_2d_size, method = 1) # nearest
             [img_slice, weight_slice, label_slice] = self.__random_sample_patch(
                     img_slice, weight_slice, label_slice)
-#            stp = self.__get_spatial_transform_parameter(label_slice)
             return img_slice, weight_slice, label_slice
-
-    def __get_spatial_transform_parameter(self, label):
-        """Compute the parameters for spatial transformer (affine)
-            [sh,  0, dh]
-            [ 0, sw, dw]
-        """
-        img_size         = tf.cast(tf.shape(label), tf.float32)
-        img_size_minus_1 = tf.subtract(img_size, tf.constant([1, 1, 1, 1], tf.float32))
-        img_size         = tf.slice(img_size, tf.constant([1]), tf.constant([2]))
-        img_size_minus_1 = tf.slice(img_size_minus_1, tf.constant([1]), tf.constant([2]))
-
-        margin = self.config.get('bounding_box_margin', [0,0,0])
-        [indices_min, indices_max] = self.__get_4d_bounding_box(label, margin + [0])
-        indices_min = tf.slice(indices_min, tf.constant([1]), tf.constant([2]))
-        indices_max = tf.slice(indices_max, tf.constant([1]), tf.constant([2]))
-        indices_center = tf.add(indices_min, indices_max)
-        indices_center = tf.multiply(tf.cast(indices_center, tf.float32),
-                                     tf.constant([0.5, 0.5], tf.float32))
-        indices_center = tf.divide(indices_center, img_size_minus_1)
-        offset = tf.multiply(indices_center, tf.constant([2.0, 2.0], tf.float32))
-        offset = tf.subtract(offset, tf.constant([1.0, 1.0], tf.float32))
-        offset = tf.expand_dims(offset, 0)
-        offset = tf.transpose(offset)
-        
-        roi_size = tf.cast(tf.subtract(indices_max, indices_min), tf.float32)
-        roi_size = tf.add(roi_size, tf.constant([1.0,1.0], tf.float32))
-        scale = tf.divide(roi_size, img_size)
-
-        scale_h = tf.multiply(scale, tf.constant([1.0, 0.0], tf.float32))
-        scale_w = tf.multiply(scale, tf.constant([0.0, 1.0], tf.float32))
-        rotate = tf.stack([scale_h, scale_w])
-
-        param = tf.concat([rotate, offset], 1)
-        return param
-        
-    def _parse_function_train(self, filename, label):
-        """Input parser for samples of the training set."""
-        # convert label number into one-hot-encoding
-        one_hot = tf.one_hot(label, self.num_classes)
-
-        # load and preprocess the image
-        img_string = tf.read_file(filename)
-        img_decoded = tf.image.decode_png(img_string, channels=3)
-        img_resized = tf.image.resize_images(img_decoded, [227, 227])
-        """
-        Dataaugmentation comes here.
-        """
-        img_centered = tf.subtract(img_resized, VGG_MEAN)
-
-        # RGB -> BGR
-        img_bgr = img_centered[:, :, ::-1]
-
-        return img_bgr, one_hot
-
-    def _parse_function_inference(self, filename, label):
-        """Input parser for samples of the validation/test set."""
-        # convert label number into one-hot-encoding
-        one_hot = tf.one_hot(label, self.num_classes)
-
-        # load and preprocess the image
-        img_string = tf.read_file(filename)
-        img_decoded = tf.image.decode_png(img_string, channels=3)
-        img_resized = tf.image.resize_images(img_decoded, [227, 227])
-        img_centered = tf.subtract(img_resized, VGG_MEAN)
-
-        # RGB -> BGR
-        img_bgr = img_centered[:, :, ::-1]
-
-        return img_bgr, one_hot

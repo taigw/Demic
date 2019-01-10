@@ -21,7 +21,7 @@ from Demic.util.image_process import *
 
 class TestAgent:
     def __init__(self, config):
-        self.config_data = config['data']
+        self.config  = config
         self.config_net  = config['network']
         self.config_test = config['testing']
         
@@ -47,7 +47,7 @@ class TestAgent:
         
         self.x = tf.placeholder(tf.float32, shape = full_data_shape)
         print('network input', self.x)
-        predicty = self.net(self.x, is_training = bn_training_mode, bn_momentum = 0.0)
+        predicty = self.net(self.x, is_training = bn_training_mode)
         print('network output shape ', predicty)
         self.proby = tf.nn.softmax(predicty)
 
@@ -93,8 +93,9 @@ class TestAgent:
             resized_img = img
         
         if (use_depth_as_batch_size):
+            assert(self.config_test.get('fix_batch_size', True) == False)
             batch_size = min(resized_img.shape[0], self.config_test['batch_size'])
-        
+
         # inference
         outputp = volume_probability_prediction_3d_roi(resized_img, data_shape, label_shape,
                                                 class_num, batch_size, self.sess, self.x, self.proby)
@@ -104,13 +105,13 @@ class TestAgent:
         return outputp
 
     def test(self):
-        random.seed(100)
         self.construct_network()
+        self.config_data = self.config['data']
         data_loader = DataLoader(self.config_data)
         data_loader.load_data()
 
-        label_source = self.config_data.get('label_convert_source', None)
-        label_target = self.config_data.get('label_convert_target', None)
+        label_source = self.config_test.get('label_convert_source', None)
+        label_target = self.config_test.get('label_convert_target', None)
 
         if(not(label_source is None) and not(label_source is None)):
             assert(len(label_source) == len(label_target))
@@ -163,7 +164,7 @@ class TestAgent:
         np.savetxt("{0:}/test_time.txt".format(self.config_data['save_root']), test_time)
 
 if __name__ == '__main__':
-    if(len(sys.argv) != 2):
+    if(len(sys.argv) < 2):
         print('Number of arguments should be 2. e.g.')
         print('    python train_test/model_test.py config.txt')
         exit()

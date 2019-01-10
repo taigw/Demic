@@ -11,6 +11,7 @@ from tensorflow.data import Iterator
 from tensorflow.contrib.layers.python.layers import regularizers
 from Demic.util.parse_config import parse_config
 from Demic.image_io.data_generator import ImageDataGenerator
+from Demic.image_io.file_read_write import save_array_as_nifty_volume
 from Demic.net.net_factory import NetFactory
 from Demic.train_test.loss import get_soft_label, get_loss_function
 
@@ -143,11 +144,17 @@ class TrainAgent(object):
         self.valid_data = valid_data
         self.next_valid_batch = next_valid_batch
         self.valid_init_op = valid_init_op
-        
+
+    def save_batch_data(self, feed_dict, iter):   
+            x_batch = feed_dict[self.x]
+            save_array_as_nifty_volume(x_batch[0], '../temp/img{0:}.nii.gz'.format(iter))
+            y_batch = feed_dict[self.y]
+            save_array_as_nifty_volume(y_batch[0], '../temp/img{0:}_lab.nii.gz'.format(iter))
+
     def train(self):
         # start the session
         self.sess = tf.InteractiveSession()
-        self.sess.run(tf.initialize_all_variables())
+        self.sess.run(tf.global_variables_initializer())
         save_vars = self.get_variable_list([self.config_net['net_name']], include = True)
         saver = tf.train.Saver(save_vars)
         
@@ -185,7 +192,8 @@ class TrainAgent(object):
                 self.opt_step.run(session = self.sess, feed_dict=feed_dict)
             except tf.errors.OutOfRangeError:
                 self.sess.run(self.training_init_op)
-            
+            # save_batch_data(feed_dict, iter)
+
             if(iter==start_iter or ((iter + 1) % self.config_train['test_interval'] == 0)):
                 feed_dict = self.get_input_output_feed_dict('train')
                 [loss_v, dice_v, merged_value] = self.sess.run(
