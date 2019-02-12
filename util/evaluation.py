@@ -54,7 +54,7 @@ def iou_of_images(s_name, g_name):
     g = get_detection_binary_bounding_box(g, margin)
     return binary_iou(s, g)
 
-# Hausdorff evaluation
+# Hausdorff and ASD evaluation
 def slice_to_contour(img):
     assert(len(img.shape) == 2)
     point_list = []
@@ -133,11 +133,7 @@ def hausdorff_distance_from_one_contour_to_another(point_list_s, point_list_g, s
     return dis
 
 def binary_hausdorff2d(s, g, spacing = [1.0, 1.0]):
-    if(len(s.shape) == 4):
-        s = np.reshape(s, s.shape[1:3])
-        g = np.reshape(g, g.shape[1:3])
-    else:
-        raise ValueError("invalid volume dimention {0:}".format(len(s.shape)))
+    
     point_list_s = slice_to_contour(s)
     point_list_g = slice_to_contour(g)
     dis1 = hausdorff_distance_from_one_contour_to_another(point_list_s, point_list_g, spacing)
@@ -164,6 +160,55 @@ def binary_hausdorff3d(s, g, spacing):
     return max(dis1, dis2)
 
 
+def average_surface_distance(point_list_s, point_list_g, spacing):
+    """
+    ASD for 2D contours or 3D surfaces 
+    """
+    distance_sum = 0.0
+    assert(len(spacing) == 2 or len(spacing) == 3)
+    assert(len(point_list_s[0]) == len(point_list_g[0]) and \
+        len(point_list_s[0]) == len(spacing))
+    for ps in point_list_s:
+        ps_nearest = 1e10
+        for pg in point_list_g:
+            dd = spacing[0]*(ps[0] - pg[0])
+            dh = spacing[1]*(ps[1] - pg[1])
+            temp_dis_square = dd*dd + dh*dh
+            if(len(spacing) == 3):
+                dw = spacing[2]*(ps[2] - pg[2])
+                temp_dis_square = temp_dis_square + dw*dw
+            if(temp_dis_square < ps_nearest):
+                ps_nearest = temp_dis_square
+        distance_sum = distance_sum + math.sqrt(ps_nearest)
+    asd = distance_sum/len(point_list_s)
+    return asd
+
+def binary_assd(s, g, spacing = None):
+    """
+    ASD for 2D contours and 3D surfaces 
+    """
+    assert(len(s.shape) == 2 or len(s.shape) == 3)
+    if(s.sum() == 0 or g.sum() == 0):
+        return 100
+    if spacing == None:
+        spacing = [1.0] * len(s.shape)
+    if(len(s.shape) == 2):
+        point_list_s = slice_to_contour(s)
+        point_list_g = slice_to_contour(g)
+        point_list_s_sample = point_list_s
+        point_list_g_sample = point_list_g
+    else:
+        point_list_s = volume_to_surface(s)
+        point_list_g = volume_to_surface(g)
+        point_list_s_sample = random.sample(point_list_s, 500) #int(len(point_list_s)/5))
+        point_list_g_sample = random.sample(point_list_g, 500) #int(len(point_list_g)/5))
+    n1 = len(point_list_s_sample)
+    n2 = len(point_list_g_sample)
+    asd1 = average_surface_distance(point_list_s_sample, point_list_g, spacing)
+    asd2 = average_surface_distance(point_list_g_sample, point_list_s, spacing)
+    assd = (asd1 * n1 + asd2 * n2)/(n1 + n2)
+    return assd
+
 # relative volume error evaluation
 def binary_relative_volume_error(s_volume, g_volume):
     s_v = s_volume.sum()
@@ -173,10 +218,20 @@ def binary_relative_volume_error(s_volume, g_volume):
     return rve
 
 def get_evaluation_score(s_volume, g_volume, spacing, metric):
+    if(len(s_volume.shape) == 4):
+        assert(s_volume.shape[3] == 1 and g_volume.shape[3] == 1)
+        s_volume = np.reshape(s_volume, s_volume.shape[:3])
+        g_volume = np.reshape(g_volume, g_volume.shape[:3])
+    if(s_volume.shape[0] == 1):
+        s_volume = np.reshape(s_volume, s_volume.shape[1:])
+        g_volume = np.reshape(g_volume, g_volume.shape[1:])
+        spacing = spacing[1:]
     if(metric.lower() == "dice"):
         score = binary_dice(s_volume, g_volume)
     elif(metric.lower() == "iou"):
         score = binary_iou(s_volume,g_volume)
+    elif(metric.lower() == 'assd'):
+        score = binary_assd(s_volume, g_volume, spacing)
     elif(metric.lower() == "hausdorff2d"):
         score = binary_hausdorff2d(s_volume, g_volume, spacing)
     elif(metric.lower() == "hausdorff3d"):
