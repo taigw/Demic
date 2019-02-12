@@ -48,7 +48,9 @@ class TestAgent:
         self.x = tf.placeholder(tf.float32, shape = full_data_shape)
         print('network input', self.x)
         predicty = self.net(self.x, is_training = bn_training_mode)
-        print('network output shape ', predicty)
+        if((type(predicty) is tuple) or (type(predicty) is list)):
+            predicty = predicty[-1]
+        print('network output shape ', type(predicty))
         self.proby = tf.nn.softmax(predicty)
 
         self.sess = tf.InteractiveSession()
