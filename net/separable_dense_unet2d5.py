@@ -9,8 +9,10 @@ from niftynet.layer.downsample import DownSampleLayer
 from niftynet.layer.elementwise import ElementwiseLayer
 from niftynet.layer.crop import CropLayer
 from niftynet.utilities.util_common import look_up_operations
+from Demic.layer.separable_2d_convolution import SeparableConv2DLayer, ...
+                SeparableConvolutional2DLayer
 
-class DenseUNet2D5(TrainableLayer):
+class SeparableDenseUNet2D5(TrainableLayer):
     """
         Reimplementation of U-Net
         Ronneberger, Olaf, Philipp Fischer, and Thomas Brox. "U-net: Convolutional networks for biomedical image segmentation." MICCAI 2015
@@ -25,8 +27,8 @@ class DenseUNet2D5(TrainableLayer):
                  b_initializer=None,
                  b_regularizer=None,
                  acti_func='prelu',
-                 name='DenseUNet2D5'):
-        super(DenseUNet2D5, self).__init__(name=name)
+                 name='SeparableDenseUNet2D5'):
+        super(SeparableDenseUNet2D5, self).__init__(name=name)
         
         if(parameters is None):
             self.n_features = [32, 64, 96, 128, 160]
@@ -50,65 +52,55 @@ class DenseUNet2D5(TrainableLayer):
 #        spatial_dims = images.get_shape()[1:-1].as_list()
 #        assert (spatial_dims[-2] % 16 == 0 )
 #        assert (spatial_dims[-1] % 16 == 0 )
-        
-        block1 = DenseUNetBlock(self.n_features[0],
-                            (1,3,3),
+        block1 = SeparableDenseUNetBlock(self.n_features[0], dim = 2,
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
                             acti_func=self.acti_func,
                             name='B1')
                             
-        block2 = DenseUNetBlock(self.n_features[1],
-                            (1,3,3), 
+        block2 = SeparableDenseUNetBlock(self.n_features[1], dim = 2,
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
                             acti_func=self.acti_func,
                             name='B2')
                             
-        block3 = DenseUNetBlock(self.n_features[2],
-                            (1,3,3),
+        block3 = SeparableDenseUNetBlock(self.n_features[2], dim = 2,
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
                             acti_func=self.acti_func,
                             name='B3')
                             
-        block4 = DenseUNetBlock(self.n_features[3], 
-                            (3,3,3),
+        block4 = SeparableDenseUNetBlock(self.n_features[3], dim = 3,
                             w_initializer=self.initializers['w'],
                             w_regularizer=self.regularizers['w'],
                             acti_func=self.acti_func,
                             name='B4')
                             
-        block5 = DenseUNetBlock(self.n_features[4], 
-                           (3,3,3), 
+        block5 = SeparableDenseUNetBlock(self.n_features[4], dim = 2,
                            w_initializer=self.initializers['w'],
                            w_regularizer=self.regularizers['w'],
                            acti_func=self.acti_func,
                            name='B5')
             
-        block6 = DenseUNetBlock(self.n_features[3], 
-                          (1,3,3),
+        block6 = SeparableDenseUNetBlock(self.n_features[3], dim = 2,
                           w_initializer=self.initializers['w'],
                           w_regularizer=self.regularizers['w'],
                           acti_func=self.acti_func,
                           name='B6')
 
-        block7 = DenseUNetBlock(self.n_features[2],
-                           (1,3,3), 
+        block7 = SeparableDenseUNetBlock(self.n_features[2], dim = 2,
                            w_initializer=self.initializers['w'],
                            w_regularizer=self.regularizers['w'],
                            acti_func=self.acti_func,
                            name='B7')
                            
-        block8 = DenseUNetBlock(self.n_features[1], 
-                          (1,3,3), 
+        block8 = SeparableDenseUNetBlock(self.n_features[1], dim = 2,
                           w_initializer=self.initializers['w'],
                           w_regularizer=self.regularizers['w'],
                           acti_func=self.acti_func,
                           name='B8')
                           
-        block9 = DenseUNetBlock(self.n_features[0], 
-                         (1,3,3), 
+        block9 = SeparableDenseUNetBlock(self.n_features[0], dim = 2,
                          w_initializer=self.initializers['w'],
                          w_regularizer=self.regularizers['w'],
                          acti_func=self.acti_func,
@@ -176,18 +168,18 @@ class DenseUNet2D5(TrainableLayer):
 SUPPORTED_OP = {'DOWNSAMPLE', 'UPSAMPLE', 'NONE'}
 
 
-class DenseUNetBlock(TrainableLayer):
+class SeparableDenseUNetBlock(TrainableLayer):
     def __init__(self,
                  n_chn,
-                 kernel,
+                 dim,
                  w_initializer=None,
                  w_regularizer=None,
                  acti_func='relu',
-                 name='DenseUNet_block'):
+                 name='SeperableDenseUNet_block'):
         
-        super(DenseUNetBlock, self).__init__(name=name)
+        super(SeparableDenseUNetBlock, self).__init__(name=name)
         
-        self.kernel = kernel
+        self.dim   = dim
         self.n_chn = n_chn
         self.acti_func = acti_func
         
@@ -195,26 +187,31 @@ class DenseUNetBlock(TrainableLayer):
         self.regularizers = {'w': w_regularizer}
     
     def layer_op(self, input_tensor, is_training, bn_momentum = 0.9):
-        conv_op1 = ConvolutionalLayer(n_output_chns= self.n_chn,
-                                         kernel_size=self.kernel,
+        conv_op1 = SeparableConvolutional2DLayer(n_output_chns= self.n_chn,
+                                         kernel_size= (3, 3),
                                          w_initializer=self.initializers['w'],
                                          w_regularizer=self.regularizers['w'],
                                          acti_func=self.acti_func,
                                          name='{}_1'.format(self.n_chn))
 
-        conv_op2 = ConvolutionalLayer(n_output_chns= self.n_chn,
-                                         kernel_size=self.kernel,
+        conv_op2 = SeparableConvolutional2DLayer(n_output_chns= self.n_chn,
+                                         kernel_size= (3, 3),
                                          w_initializer=self.initializers['w'],
                                          w_regularizer=self.regularizers['w'],
                                          acti_func=self.acti_func,
                                          name='{}_2'.format(self.n_chn))
         
-        conv_op3 = ConvolutionalLayer(n_output_chns= self.n_chn,
-                                         kernel_size=self.kernel,
+        conv_op3 = SeparableConvolutional2DLayer(n_output_chns= self.n_chn,
+                                         kernel_size= (3, 3),
                                          w_initializer=self.initializers['w'],
                                          w_regularizer=self.regularizers['w'],
                                          acti_func=self.acti_func,
                                          name='{}_3'.format(self.n_chn))
+
+        if(self.dim == 3):
+            depth_conv1 = ConvolutionalLayer()
+        [N, D, H, W, C] = input_tensor.get_shape().as_list()
+        input_reshape = tf.reshape(input_tensor, [N*D, H, W, C])
 
         f1 =  conv_op1(input_tensor, is_training, bn_momentum)
         f1cat =  tf.concat((input_tensor, f1), axis = -1)
@@ -223,21 +220,3 @@ class DenseUNetBlock(TrainableLayer):
         f3 =  conv_op3(f2cat, is_training, bn_momentum)
     
         return f3
-
-class TensorSliceLayer(TrainableLayer):
-    """
-    extract the central part of a tensor
-    """
-
-    def __init__(self, margin = 1, regularizer=None, name='tensor_extract'):
-        self.layer_name = name
-        super(TensorSliceLayer, self).__init__(name=self.layer_name)
-        self.margin = margin
-        
-    def layer_op(self, input_tensor):
-        input_n      = input_tensor.get_shape().as_list()[1]
-        idx_range    = tf.constant(np.asarray(range(self.margin, input_n - self.margin)))
-        input_trans  = tf.transpose(input_tensor, [1, 0, 2, 3, 4])
-        output_trans = tf.gather(input_trans, idx_range)
-        output = tf.transpose(output_trans, [1, 0, 2, 3, 4])
-        return output
