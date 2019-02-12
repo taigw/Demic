@@ -61,7 +61,7 @@ class TrainAgent(object):
         y_reshape = tf.reshape(self.y, tf.shape(pred))
         intersect = tf.cast(tf.reduce_sum(pred * y_reshape), tf.float32)
         volume_sum = tf.cast(tf.reduce_sum(pred) + tf.reduce_sum(y_reshape), tf.float32)
-        self.dice = 2.0*intersect/(volume_sum + 1.0)
+        self.dice = (2.0*intersect + 1.0e-5)/(volume_sum + 1.0e-5)
 
         # add tf scalar
         tf.summary.scalar('loss', self.loss)
