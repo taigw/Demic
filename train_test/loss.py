@@ -9,10 +9,8 @@ def get_loss_function(loss_name):
         return generalized_dice_loss
     elif(loss_name == "multi_scale_dice_loss"):
         return multi_scale_soft_dice_loss
-    elif(loss_name == "focal_dice_loss"):
-        return focal_dice_loss
-    elif(loss_name == "focal_gdl_loss"):
-        return focal_gdl_loss
+    elif(loss_name == "hardness_weighted_dice"):
+        return hardness_weighted_dice_loss
     else:
         raise ValueError("unsupported loss {0:}".format(loss_name))
 
@@ -76,29 +74,8 @@ def generalized_dice_loss(prediction, soft_ground_truth, num_class,
     gdl_loss    = 1.0 - 2*numerator/denominator
     return gdl_loss
 
-def focal_gdl_loss(prediction,  soft_ground_truth, num_class, alpha = 1.0, 
-       weight_map=None, softmax = True, class_weight = [1.0, 1.0]):
-    assert(len(class_weight) == num_class)
-    [N, D, H, W, C] = prediction.get_shape().as_list()
-    if(softmax):
-        prediction = tf.nn.softmax(prediction)
-    intersect = 1.0
-    union     = 1.0
-    for n in range(N):
-        for c in range(C):
-            pred   = tf.slice(prediction, begin = [n, 0, 0, 0, c], 
-                                              size =[1, D, H, W, 1])
-            ground = tf.slice(soft_ground_truth, begin = [n, 0, 0, 0, c], 
-                                              size =[1, D, H, W, 1])
-            wght = tf.math.abs(pred - ground)
-            wght = tf.ones_like(pred)*alpha + (1.0 - alpha) * wght
-            
-            intersect += tf.reduce_sum(pred * ground * wght)
-            union     += tf.reduce_sum((pred + ground) * wght)
-    loss = 1.0 - 2*intersect/union
-    return loss
-
-def focal_dice_loss(prediction, soft_ground_truth, num_class, alpha = 1.0, weight_map=None, softmax = True):
+def hardness_weighted_dice_loss(prediction, soft_ground_truth, num_class, 
+        lambda_value = 0.5, weight_map=None, softmax = True):
     [N, D, H, W, C] = prediction.get_shape().as_list()
     if(softmax):
         prediction = tf.nn.softmax(prediction)
@@ -111,7 +88,7 @@ def focal_dice_loss(prediction, soft_ground_truth, num_class, alpha = 1.0, weigh
             ground = tf.slice(soft_ground_truth, begin = [n, 0, 0, 0, c], 
                                               size =[1, D, H, W, 1])
             wght = tf.math.abs(pred - ground)
-            wght = tf.ones_like(pred)*alpha + (1.0 - alpha) * wght
+            wght = lambda_value * wght + (tf.ones_like(pred) - lambda_value)
 
             loss   =  soft_dice_loss(pred, ground, 1, 
                       weight_map = wght,softmax = False)
