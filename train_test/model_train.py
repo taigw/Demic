@@ -9,6 +9,7 @@ import tensorflow as tf
 from datetime import datetime
 from tensorflow.data import Iterator
 from tensorflow.contrib.layers.python.layers import regularizers
+from niftynet.layer.linear_resize import LinearResizeLayer
 from Demic.util.parse_config import parse_config
 from Demic.image_io.data_generator import ImageDataGenerator
 from Demic.image_io.file_read_write import save_array_as_nifty_volume
@@ -29,18 +30,22 @@ class TrainAgent(object):
         random.seed(seed)
 
     def construct_network(self):
-        batch_size  = self.config_sampler.get('batch_size', 5)
+        batch_size    = self.config_sampler.get('batch_size', 5)
+        resize_shape = self.config_train.get('resize_shape', None)        
         self.full_data_shape = [batch_size] + self.config_sampler['data_shape']
         self.full_out_shape  = [batch_size] + self.config_sampler['label_shape']
         self.class_num       = self.config_net['class_num']
         net_class            = NetFactory.create(self.config_net['net_type'])
-        loss_func = get_loss_function(self.config_train.get('loss_function', 'dice'))
+        loss_func_name       = self.config_train.get('loss_function', 'dice')
+        loss_func = get_loss_function(loss_func_name)
+        if(loss_func_name == "focal_dice_loss"):
+            focal_alpha = self.config_train['focal_alpha']
         
         full_weight_shape = [x for x in self.full_out_shape]
         full_weight_shape[-1] = 1
         self.x = tf.placeholder(tf.float32, shape = self.full_data_shape)
         self.w = tf.placeholder(tf.float32, shape = full_weight_shape)
-        self.y = tf.placeholder(tf.int32, shape = self.full_out_shape)
+        self.y = tf.placeholder(tf.float32, shape = self.full_out_shape)
         
         w_regularizer = regularizers.l2_regularizer(self.config_train.get('decay', 1e-7))
         b_regularizer = regularizers.l2_regularizer(self.config_train.get('decay', 1e-7))
@@ -50,15 +55,30 @@ class TrainAgent(object):
                         w_regularizer = w_regularizer,
                         b_regularizer = b_regularizer,
                         name = self.config_net['net_name'])
-        predicty = net(self.x, is_training = self.config_net['bn_training'])
-        self.predicty = tf.reshape(predicty, self.full_out_shape[:-1] + [self.class_num])
+        if(resize_shape is not None):
+            resize_layer = LinearResizeLayer(resize_shape)
+            x_resize = resize_layer(self.x)
+            w_resize = resize_layer(self.w)
+            y_resize = resize_layer(self.y)
+        else:
+            x_resize = self.x
+            w_resize = self.w
+            y_resize = self.y
+        predicty = net(x_resize, is_training = self.config_net['bn_training'])
+        if((type(predicty) is tuple) or (type(predicty) is list)):
+            predicty = predicty[-1]
+        self.predicty = tf.reshape(predicty, y_resize.shape.as_list()[:-1] + [self.class_num])
         print('network output shape ', self.predicty.shape)
-        y_soft  = get_soft_label(self.y, self.class_num)
-        loss = loss_func(self.predicty, y_soft, self.class_num, weight_map = self.w)
+        y_soft  = get_soft_label(y_resize, self.class_num)
+        if(loss_func_name == 'focal_dice_loss'):
+            loss = loss_func(self.predicty, y_soft, self.class_num, 
+                    alpha = focal_alpha, weight_map = w_resize)
+        else:
+            loss = loss_func(self.predicty, y_soft, self.class_num, weight_map = w_resize)
         self.loss = loss
         
-        pred   = tf.cast(tf.argmax(self.predicty, axis = -1), tf.int32)
-        y_reshape = tf.reshape(self.y, tf.shape(pred))
+        pred   = tf.cast(tf.argmax(self.predicty, axis = -1), tf.float32)
+        y_reshape = tf.reshape(y_resize, tf.shape(pred))
         intersect = tf.cast(tf.reduce_sum(pred * y_reshape), tf.float32)
         volume_sum = tf.cast(tf.reduce_sum(pred) + tf.reduce_sum(y_reshape), tf.float32)
         self.dice = (2.0*intersect + 1.0e-5)/(volume_sum + 1.0e-5)
@@ -117,7 +137,8 @@ class TrainAgent(object):
         vars_update = self.get_variable_list(vars_fixed, include = False)
         update_ops  = tf.get_collection(tf.GraphKeys.UPDATE_OPS) # for batch normalization
         with tf.control_dependencies(update_ops):
-            self.opt_step = tf.train.AdamOptimizer(learn_rate).minimize(self.loss, var_list = vars_update)
+            self.opt_step = tf.train.AdamOptimizer(learn_rate, 0.95).minimize(self.loss, 
+		var_list = vars_update)
         
         # Place data loading and preprocessing on the cpu
         with tf.device('/cpu:0'):
@@ -157,7 +178,7 @@ class TrainAgent(object):
         self.sess.run(tf.global_variables_initializer())
         save_vars = self.get_variable_list([self.config_net['net_name']], include = True)
         saver = tf.train.Saver(save_vars)
-        
+
         start_iter  = self.config_train.get('start_iter', 0)
         max_iter    = self.config_train['maximal_iter']
         loss_file   = self.config_train['model_save_prefix'] + "_loss.txt"
@@ -169,8 +190,8 @@ class TrainAgent(object):
             restore_saver = tf.train.Saver(restore_vars)
             restore_saver.restore(self.sess, self.config_train['pretrained_model'])
  
-            loss_list = list(np.loadtxt(loss_file)[:start_iter - 1])
-            dice_list = list(np.loadtxt(loss_file)[:start_iter - 1])
+            #loss_list = list(np.loadtxt(loss_file)[:start_iter - 1])
+            #dice_list = list(np.loadtxt(loss_file)[:start_iter - 1])
         
         # make sure the graph is fixed during training
         summ_merged = tf.summary.merge_all() # for tensorboard 
@@ -192,8 +213,8 @@ class TrainAgent(object):
                 self.opt_step.run(session = self.sess, feed_dict=feed_dict)
             except tf.errors.OutOfRangeError:
                 self.sess.run(self.training_init_op)
-            # save_batch_data(feed_dict, iter)
-
+            #self.save_batch_data(feed_dict, iter)
+            #continue
             if(iter==start_iter or ((iter + 1) % self.config_train['test_interval'] == 0)):
                 feed_dict = self.get_input_output_feed_dict('train')
                 [loss_v, dice_v, merged_value] = self.sess.run(

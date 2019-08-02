@@ -12,6 +12,7 @@ from scipy import ndimage
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from datetime import datetime
+from niftynet.layer.linear_resize import LinearResizeLayer
 from Demic.net.net_factory import NetFactory
 from Demic.image_io.file_read_write import *
 from Demic.image_io.convert_to_tfrecords import DataLoader
@@ -37,6 +38,7 @@ class TestAgent:
         shape_mode     = self.config_test.get('shape_mode', 1)
         fix_batch_size = self.config_test.get('fix_batch_size', True)
         batch_size     = self.config_test.get('batch_size', 1)
+        resize_shape   = self.config_test.get('resize_shape', None)  
         data_shape = self.config_net['data_shape']
         label_shape= self.config_net['label_shape']
         class_num  = self.config_net['class_num']
@@ -46,11 +48,20 @@ class TestAgent:
         full_data_shape  = ([batch_size] if fix_batch_size else [None]) + data_shape
         
         self.x = tf.placeholder(tf.float32, shape = full_data_shape)
+        if(resize_shape is not None):
+            resize_layer = LinearResizeLayer(resize_shape)
+            x_resize = resize_layer(self.x)
+        else:
+            x_resize = self.x
+
         print('network input', self.x)
-        predicty = self.net(self.x, is_training = bn_training_mode)
+        predicty = self.net(x_resize, is_training = bn_training_mode)
         if((type(predicty) is tuple) or (type(predicty) is list)):
             predicty = predicty[-1]
         print('network output shape ', type(predicty))
+        if(resize_shape is not None):
+            resize_layer2 = LinearResizeLayer(data_shape[:-1])
+            predicty = resize_layer2(predicty)
         self.proby = tf.nn.softmax(predicty)
 
         self.sess = tf.InteractiveSession()

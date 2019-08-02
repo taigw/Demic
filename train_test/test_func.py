@@ -117,17 +117,21 @@ def volume_probability_prediction_3d_roi(img, data_shape, label_shape,
                 sub_image_patches.append(sub_image)
 
     # inference with image patches
+    total_batch0 = len(sub_image_patches)
+    if(total_batch0 % batch_size > 0):
+        append_batch = batch_size - total_batch0 % batch_size
+        sub_image_patches = sub_image_patches + [sub_image_patches[-1]]*append_batch
     total_batch = len(sub_image_patches)
-    print("total batch number and input size", total_batch, img.shape)
-    max_mini_batch = int((total_batch + batch_size -1)/batch_size)
+    print("total batch number and input size", total_batch0, total_batch, img.shape)
+    max_mini_batch = int(total_batch /batch_size)
     for mini_batch_idx in range(max_mini_batch):
-        batch_end_idx = min((mini_batch_idx+1)*batch_size, total_batch)
-        batch_start_idx = batch_end_idx - batch_size
+        batch_start_idx = mini_batch_idx * batch_size
+        batch_end_idx   = batch_start_idx + batch_size
         data_mini_batch = sub_image_patches[batch_start_idx:batch_end_idx]
         data_mini_batch = np.asarray(data_mini_batch, np.float32)
         prob_mini_batch = sess.run(proby, feed_dict = {x:data_mini_batch})
         
-        for batch_idx in range(batch_start_idx, batch_end_idx):
+        for batch_idx in range(batch_start_idx, min(batch_end_idx,total_batch0)):
             roi_center = sub_image_centers[batch_idx]
             roi_center[3] = int(class_num/2)
             prob = set_roi_to_nd_volume(prob, roi_center, prob_mini_batch[batch_idx-batch_start_idx])
